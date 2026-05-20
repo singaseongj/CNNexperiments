@@ -1,1 +1,1248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CNN Classroom Simulator</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #07090f;
+  --surface: #0e1118;
+  --panel: #131720;
+  --card: #181e2a;
+  --border: #1f2838;
+  --border2: #2a3448;
+  --green: #00e87a;
+  --green-dim: rgba(0,232,122,.12);
+  --red: #ff3a5c;
+  --red-dim: rgba(255,58,92,.12);
+  --yellow: #f5c518;
+  --yellow-dim: rgba(245,197,24,.1);
+  --blue: #3d8eff;
+  --blue-dim: rgba(61,142,255,.1);
+  --purple: #9b6dff;
+  --purple-dim: rgba(155,109,255,.1);
+  --text: #dce4f0;
+  --muted: #5a6a84;
+  --muted2: #3d4d62;
+}
+
+*{box-sizing:border-box;margin:0;padding:0}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Syne', sans-serif;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* scanline texture */
+body::after {
+  content:'';position:fixed;inset:0;z-index:999;pointer-events:none;
+  background: repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.03) 2px,rgba(0,0,0,.03) 4px);
+}
+
+/* grid bg */
+body::before {
+  content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
+  background-image:
+    linear-gradient(rgba(61,142,255,.035) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(61,142,255,.035) 1px,transparent 1px);
+  background-size:48px 48px;
+}
+
+/* ── SETUP SCREEN ── */
+#setup-screen {
+  position:fixed;inset:0;z-index:500;
+  background:var(--bg);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:0;padding:40px 20px;
+}
+
+.setup-hero {
+  text-align:center;margin-bottom:40px;
+}
+.setup-hero h1 {
+  font-size:clamp(28px,5vw,52px);font-weight:800;line-height:1;
+  color:#fff;letter-spacing:-.02em;
+}
+.setup-hero h1 em { font-style:normal;color:var(--green); }
+.setup-hero p {
+  margin-top:12px;color:var(--muted);font-size:14px;font-weight:400;
+  font-family:'JetBrains Mono',monospace;letter-spacing:.03em;
+}
+
+.setup-cards {
+  display:flex;gap:16px;flex-wrap:wrap;justify-content:center;
+  max-width:700px;width:100%;margin-bottom:32px;
+}
+.setup-card {
+  background:var(--panel);border:1px solid var(--border);
+  border-radius:14px;padding:18px 20px;flex:1;min-width:180px;
+}
+.setup-card-label {
+  font-family:'JetBrains Mono',monospace;font-size:10px;
+  color:var(--muted);letter-spacing:.12em;text-transform:uppercase;
+  margin-bottom:12px;
+}
+.setup-card-val {
+  font-size:32px;font-weight:800;color:#fff;line-height:1;
+  margin-bottom:4px;
+}
+.setup-card-sub { font-size:11px;color:var(--muted);font-family:'JetBrains Mono',monospace; }
+
+.stepper {
+  display:flex;align-items:center;gap:10px;margin-top:14px;
+}
+.step-btn {
+  width:32px;height:32px;border-radius:8px;
+  border:1px solid var(--border2);background:var(--card);
+  color:var(--text);font-size:16px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  transition:background .15s,border-color .15s;
+  font-family:'JetBrains Mono',monospace;
+}
+.step-btn:hover{background:var(--border);border-color:var(--border2);}
+.step-val {
+  font-family:'JetBrains Mono',monospace;font-size:20px;
+  font-weight:700;color:var(--yellow);min-width:36px;text-align:center;
+}
+
+.setup-structure {
+  background:var(--panel);border:1px solid var(--border);
+  border-radius:14px;padding:18px 22px;max-width:700px;width:100%;
+  margin-bottom:28px;
+}
+.struct-title {
+  font-family:'JetBrains Mono',monospace;font-size:10px;
+  color:var(--muted);letter-spacing:.12em;text-transform:uppercase;
+  margin-bottom:14px;
+}
+.struct-row {
+  display:flex;align-items:center;gap:12px;margin-bottom:8px;
+  font-size:13px;
+}
+.struct-dot {
+  width:10px;height:10px;border-radius:50%;flex-shrink:0;
+}
+.struct-dot.a{background:var(--blue);}
+.struct-dot.b{background:var(--purple);}
+.struct-dot.out{background:var(--green);}
+.struct-label{color:var(--muted);}
+.struct-val{color:var(--text);font-family:'JetBrains Mono',monospace;font-size:12px;margin-left:auto;}
+
+.btn-start {
+  background:var(--green);color:#000;
+  border:none;border-radius:12px;padding:16px 48px;
+  font-family:'Syne',sans-serif;font-size:16px;font-weight:800;
+  cursor:pointer;letter-spacing:.02em;
+  transition:opacity .2s,transform .1s;
+  box-shadow:0 0 40px rgba(0,232,122,.25);
+}
+.btn-start:hover{opacity:.88;transform:translateY(-2px);}
+.btn-start:active{transform:translateY(0);}
+
+/* ── MAIN APP ── */
+#app-screen { position:relative;z-index:1; }
+
+/* TOPBAR */
+.topbar {
+  position:sticky;top:0;z-index:100;
+  background:rgba(7,9,15,.92);
+  backdrop-filter:blur(12px);
+  border-bottom:1px solid var(--border);
+  padding:0 24px;
+  display:flex;align-items:center;gap:0;
+  height:56px;
+}
+.topbar-brand {
+  font-size:13px;font-weight:800;letter-spacing:.06em;
+  color:var(--blue);white-space:nowrap;
+  font-family:'JetBrains Mono',monospace;
+  margin-right:24px;
+}
+.topbar-brand span{color:var(--green);}
+
+.topbar-divider{width:1px;height:32px;background:var(--border);margin:0 20px;}
+
+.phase-pill {
+  display:flex;align-items:center;gap:7px;
+  background:var(--card);border:1px solid var(--border);
+  border-radius:20px;padding:5px 12px;
+  font-family:'JetBrains Mono',monospace;font-size:11px;
+  color:var(--muted);transition:all .3s;
+}
+.phase-dot {
+  width:7px;height:7px;border-radius:50%;
+  background:var(--muted2);transition:background .3s;
+}
+.phase-pill.phase-roll .phase-dot{background:var(--blue);box-shadow:0 0 8px var(--blue);}
+.phase-pill.phase-conv .phase-dot{background:var(--purple);box-shadow:0 0 8px var(--purple);}
+.phase-pill.phase-done .phase-dot{background:var(--green);box-shadow:0 0 8px var(--green);}
+.phase-pill.phase-roll{border-color:rgba(61,142,255,.3);color:var(--blue);}
+.phase-pill.phase-conv{border-color:rgba(155,109,255,.3);color:var(--purple);}
+.phase-pill.phase-done{border-color:rgba(0,232,122,.3);color:var(--green);}
+
+.topbar-right {
+  margin-left:auto;display:flex;align-items:center;gap:14px;
+}
+
+.target-capsule {
+  display:flex;align-items:center;gap:10px;
+  background:var(--card);border:1px solid var(--border);
+  border-radius:20px;padding:6px 14px;
+  font-family:'JetBrains Mono',monospace;font-size:11px;
+  color:var(--muted);
+}
+.target-bulb {
+  width:22px;height:22px;border-radius:50%;
+  background:var(--muted2);border:2px solid var(--border);
+  transition:all .4s;flex-shrink:0;
+}
+.target-bulb.green{
+  background:var(--green);border-color:var(--green);
+  box-shadow:0 0 12px var(--green),0 0 24px rgba(0,232,122,.4);
+}
+.target-bulb.red{
+  background:var(--red);border-color:var(--red);
+  box-shadow:0 0 12px var(--red),0 0 24px rgba(255,58,92,.4);
+}
+.target-name{color:var(--text);font-weight:700;}
+
+.stats-row {
+  display:flex;align-items:center;gap:16px;
+  font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted);
+}
+.stat { display:flex;align-items:center;gap:5px; }
+.stat-val { color:var(--text);font-weight:700; }
+.stat-val.green-v{color:var(--green);}
+.stat-val.red-v{color:var(--red);}
+
+/* ── THREE-COLUMN LAYOUT ── */
+.columns {
+  display:grid;
+  grid-template-columns:1fr 1fr 260px;
+  gap:1px;
+  background:var(--border);
+  min-height:calc(100vh - 56px - 64px);
+}
+.col {
+  background:var(--bg);
+  padding:20px;
+  position:relative;
+}
+.col-header {
+  margin-bottom:16px;
+}
+.col-tag {
+  display:inline-flex;align-items:center;gap:7px;
+  font-family:'JetBrains Mono',monospace;font-size:9px;
+  letter-spacing:.14em;text-transform:uppercase;
+  padding:4px 10px;border-radius:4px;margin-bottom:8px;
+}
+.col-tag.a{background:var(--blue-dim);color:var(--blue);border:1px solid rgba(61,142,255,.2);}
+.col-tag.b{background:var(--purple-dim);color:var(--purple);border:1px solid rgba(155,109,255,.2);}
+.col-tag.out{background:var(--green-dim);color:var(--green);border:1px solid rgba(0,232,122,.2);}
+.col-title {
+  font-size:15px;font-weight:800;color:#fff;margin-bottom:4px;
+}
+.col-subtitle {
+  font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted);
+  line-height:1.6;
+}
+
+/* ── SENSOR CARDS ── */
+.sensors-grid {
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(118px,1fr));
+  gap:8px;
+}
+
+.sensor-card {
+  background:var(--card);
+  border:1.5px solid var(--border);
+  border-radius:12px;
+  padding:12px 10px;
+  display:flex;flex-direction:column;align-items:center;gap:6px;
+  position:relative;overflow:hidden;
+  transition:border-color .25s,transform .15s;
+  animation:fadeUp .3s ease both;
+}
+.sensor-card::before {
+  content:'';position:absolute;top:0;left:0;right:0;height:2px;
+  background:var(--border);transition:background .25s;
+}
+.sensor-card.fired{ border-color:var(--green); }
+.sensor-card.fired::before{ background:var(--green); }
+.sensor-card.silent{ border-color:var(--red); }
+.sensor-card.silent::before{ background:var(--red); }
+
+.sc-label{
+  font-family:'JetBrains Mono',monospace;font-size:9px;
+  color:var(--muted);letter-spacing:.06em;
+}
+.sc-student{
+  font-size:11px;font-weight:700;color:var(--muted);
+  text-align:center;
+}
+.sc-output{
+  font-size:30px;font-weight:800;color:var(--muted2);
+  line-height:1;transition:color .2s;min-height:36px;
+  display:flex;align-items:center;justify-content:center;
+}
+.sensor-card.fired .sc-output{color:var(--green);}
+.sensor-card.silent .sc-output{color:var(--red);}
+
+.sc-weight{
+  font-family:'JetBrains Mono',monospace;font-size:10px;
+  background:var(--bg);border:1px solid var(--border);
+  padding:2px 7px;border-radius:20px;color:var(--yellow);
+}
+.roll-dice-btn {
+  background:var(--blue);border:none;border-radius:7px;
+  color:#fff;font-family:'Syne',sans-serif;font-size:10px;font-weight:700;
+  padding:5px 8px;cursor:pointer;width:100%;
+  transition:opacity .15s,transform .1s;letter-spacing:.03em;
+}
+.roll-dice-btn:hover{opacity:.85;}
+.roll-dice-btn:active{transform:scale(.95);}
+.roll-dice-btn:disabled{opacity:.3;cursor:not-allowed;}
+
+/* dice result overlay */
+.dice-pip {
+  font-family:'JetBrains Mono',monospace;font-size:9px;
+  color:var(--muted);margin-top:-2px;
+}
+
+/* ── CONVOLUTION CARDS ── */
+.conv-list { display:flex;flex-direction:column;gap:8px; }
+
+.conv-card {
+  background:var(--card);border:1.5px solid var(--border);
+  border-radius:12px;padding:14px;
+  animation:fadeUp .3s ease both;
+  transition:border-color .25s;
+  position:relative;overflow:hidden;
+}
+.conv-card::before{
+  content:'';position:absolute;left:0;top:0;bottom:0;width:3px;
+  background:var(--border);transition:background .25s;border-radius:3px 0 0 3px;
+}
+.conv-card.reported{ border-color:var(--purple); }
+.conv-card.reported::before{ background:var(--purple); }
+.conv-card.helped{ border-color:var(--green); }
+.conv-card.helped::before{ background:var(--green); }
+.conv-card.hurt{ border-color:var(--red); }
+.conv-card.hurt::before{ background:var(--red); }
+
+.cc-header{
+  display:flex;align-items:center;gap:8px;margin-bottom:10px;
+}
+.cc-id{
+  font-size:13px;font-weight:800;color:#fff;
+}
+.cc-student{
+  font-size:11px;color:var(--muted);font-family:'JetBrains Mono',monospace;
+}
+.cc-badge{
+  margin-left:auto;
+  font-family:'JetBrains Mono',monospace;font-size:9px;
+  background:var(--purple-dim);border:1px solid rgba(155,109,255,.25);
+  color:var(--purple);padding:2px 7px;border-radius:4px;
+}
+
+.cc-kernel {
+  display:flex;align-items:center;gap:6px;margin-bottom:10px;
+  font-family:'JetBrains Mono',monospace;font-size:11px;
+}
+.kernel-cell {
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:7px;padding:6px 10px;text-align:center;min-width:52px;
+  transition:border-color .2s,background .2s;
+}
+.kernel-cell .kc-name{font-size:9px;color:var(--muted);margin-bottom:2px;}
+.kernel-cell .kc-val{font-size:15px;font-weight:700;color:var(--muted2);transition:color .2s;}
+.kernel-cell.kc-fired .kc-val{color:var(--green);}
+.kernel-cell.kc-silent .kc-val{color:var(--red);}
+.kernel-cell.kc-fired{border-color:rgba(0,232,122,.3);background:rgba(0,232,122,.05);}
+.kernel-cell.kc-silent{border-color:rgba(255,58,92,.3);background:rgba(255,58,92,.05);}
+.kernel-cell .kc-w{font-size:9px;color:var(--muted);font-style:normal;}
+
+.cc-op{color:var(--muted);font-size:14px;}
+.cc-eq{color:var(--muted);font-size:12px;margin:0 4px;}
+
+.cc-score-row {
+  display:flex;align-items:center;gap:8px;
+  margin-bottom:10px;
+}
+.cc-score-label{
+  font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted);
+}
+.cc-score-val{
+  font-family:'JetBrains Mono',monospace;font-size:18px;font-weight:700;
+  color:var(--muted2);transition:color .3s;
+}
+.cc-score-val.has-score{color:var(--yellow);}
+
+.cc-report-btn {
+  background:var(--purple);border:none;border-radius:8px;
+  color:#fff;font-family:'Syne',sans-serif;font-size:11px;font-weight:700;
+  padding:8px 12px;cursor:pointer;width:100%;
+  transition:opacity .15s,transform .1s;
+  display:flex;align-items:center;justify-content:center;gap:6px;
+}
+.cc-report-btn:hover{opacity:.85;}
+.cc-report-btn:active{transform:scale(.97);}
+.cc-report-btn:disabled{opacity:.3;cursor:not-allowed;}
+
+/* report tag */
+.report-tag {
+  display:inline-flex;align-items:center;gap:5px;
+  font-family:'JetBrains Mono',monospace;font-size:9px;
+  padding:3px 8px;border-radius:4px;margin-top:6px;
+  width:100%;justify-content:center;
+}
+.report-tag.helped{background:var(--green-dim);color:var(--green);border:1px solid rgba(0,232,122,.25);}
+.report-tag.hurt{background:var(--red-dim);color:var(--red);border:1px solid rgba(255,58,92,.25);}
+.report-tag.neutral{background:var(--yellow-dim);color:var(--yellow);border:1px solid rgba(245,197,24,.25);}
+
+/* weight adjust */
+.weight-adj-row {
+  display:flex;align-items:center;gap:6px;margin-top:8px;
+  padding-top:8px;border-top:1px solid var(--border);
+}
+.weight-adj-label{
+  font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--muted);flex:1;
+}
+.wadj-btn {
+  width:24px;height:24px;border-radius:6px;
+  border:1px solid var(--border);background:var(--bg);
+  color:var(--text);font-size:14px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  transition:background .15s;font-family:'JetBrains Mono',monospace;
+  line-height:1;
+}
+.wadj-btn:hover{background:var(--border);}
+.wadj-btn.plus:hover{background:rgba(0,232,122,.15);border-color:rgba(0,232,122,.4);color:var(--green);}
+.wadj-btn.minus:hover{background:rgba(255,58,92,.15);border-color:rgba(255,58,92,.4);color:var(--red);}
+.wadj-val{
+  font-family:'JetBrains Mono',monospace;font-size:13px;
+  color:var(--yellow);min-width:28px;text-align:center;font-weight:700;
+}
+.wadj-sensor-name{
+  font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--muted);
+  min-width:28px;
+}
+
+/* ── OUTPUT PANEL ── */
+.out-col{background:var(--surface);}
+
+.out-section {
+  margin-bottom:20px;
+  padding-bottom:20px;
+  border-bottom:1px solid var(--border);
+}
+.out-section:last-child{border-bottom:none;}
+
+.out-label{
+  font-family:'JetBrains Mono',monospace;font-size:9px;
+  letter-spacing:.14em;text-transform:uppercase;color:var(--muted);
+  margin-bottom:10px;display:flex;align-items:center;gap:8px;
+}
+.out-label::after{content:'';flex:1;height:1px;background:var(--border);}
+
+/* conv scores list */
+.conv-scores-list{display:flex;flex-direction:column;gap:5px;}
+.conv-score-row{
+  display:flex;align-items:center;gap:8px;
+  font-family:'JetBrains Mono',monospace;font-size:11px;
+  background:var(--card);border:1px solid var(--border);
+  border-radius:7px;padding:7px 10px;
+  transition:border-color .2s;
+}
+.conv-score-row.active{border-color:var(--purple);}
+.csr-id{color:var(--purple);min-width:24px;font-weight:700;}
+.csr-pair{color:var(--muted);font-size:9px;flex:1;}
+.csr-val{color:var(--yellow);font-weight:700;margin-left:auto;}
+.csr-val.pending{color:var(--muted2);}
+
+/* total + output */
+.total-display{
+  display:flex;align-items:baseline;gap:8px;margin-bottom:8px;
+}
+.total-big{
+  font-family:'JetBrains Mono',monospace;font-size:34px;font-weight:700;
+  color:var(--muted2);transition:color .4s;line-height:1;
+}
+.total-big.has-val{color:#fff;}
+.total-unit{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted);}
+
+.threshold-rule{
+  font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted);
+  margin-bottom:12px;line-height:1.7;
+}
+.threshold-rule span{color:var(--yellow);}
+
+.output-orb {
+  width:80px;height:80px;border-radius:50%;
+  border:3px solid var(--border2);
+  display:flex;align-items:center;justify-content:center;
+  font-size:32px;transition:all .5s;
+  margin:0 auto 12px;
+}
+.output-orb.green-orb{
+  border-color:var(--green);
+  box-shadow:0 0 0 8px rgba(0,232,122,.08),0 0 30px rgba(0,232,122,.3);
+}
+.output-orb.red-orb{
+  border-color:var(--red);
+  box-shadow:0 0 0 8px rgba(255,58,92,.08),0 0 30px rgba(255,58,92,.3);
+}
+
+.verdict-box{
+  text-align:center;
+  font-family:'JetBrains Mono',monospace;font-size:11px;
+  padding:10px 14px;border-radius:8px;
+  border:1px solid var(--border);background:var(--card);
+  color:var(--muted);transition:all .3s;
+}
+.verdict-box.correct{
+  background:var(--green-dim);border-color:rgba(0,232,122,.35);color:var(--green);
+}
+.verdict-box.wrong{
+  background:var(--red-dim);border-color:rgba(255,58,92,.35);color:var(--red);
+}
+
+/* history */
+.history-list{display:flex;flex-direction:column;gap:5px;}
+.hist-row{
+  display:flex;align-items:center;gap:6px;
+  font-family:'JetBrains Mono',monospace;font-size:10px;
+  background:var(--card);border:1px solid var(--border);
+  border-radius:6px;padding:7px 10px;
+}
+.hr-round{color:var(--muted);min-width:28px;}
+.hr-target{min-width:36px;}
+.hr-got{min-width:36px;}
+.hr-sum{color:var(--muted);font-size:9px;flex:1;}
+.hr-result{font-weight:700;}
+.hr-result.c{color:var(--green);}
+.hr-result.w{color:var(--red);}
+
+/* ── ACTION BAR ── */
+.action-bar{
+  position:sticky;bottom:0;z-index:50;
+  height:64px;
+  background:rgba(7,9,15,.95);backdrop-filter:blur(12px);
+  border-top:1px solid var(--border);
+  display:flex;align-items:center;padding:0 24px;gap:12px;
+}
+.ab-info{
+  font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted);
+  flex:1;
+}
+.ab-info span{color:var(--text);}
+
+.btn-ab {
+  border:none;border-radius:9px;padding:9px 20px;
+  font-family:'Syne',sans-serif;font-size:13px;font-weight:700;
+  cursor:pointer;transition:opacity .15s,transform .1s;
+  letter-spacing:.02em;
+}
+.btn-ab:hover{opacity:.85;}
+.btn-ab:active{transform:scale(.97);}
+.btn-ab:disabled{opacity:.3;cursor:not-allowed;}
+.btn-ab.blue{background:var(--blue);color:#fff;}
+.btn-ab.purple{background:var(--purple);color:#fff;}
+.btn-ab.green{background:var(--green);color:#000;}
+.btn-ab.ghost{background:var(--card);color:var(--text);border:1px solid var(--border);}
+.btn-ab.danger{background:var(--red-dim);color:var(--red);border:1px solid rgba(255,58,92,.3);}
+
+/* Animations */
+@keyframes fadeUp{
+  from{opacity:0;transform:translateY(8px);}
+  to{opacity:1;transform:translateY(0);}
+}
+@keyframes pop{
+  0%{transform:scale(1);}50%{transform:scale(1.15);}100%{transform:scale(1);}
+}
+.pop{animation:pop .3s ease;}
+
+.hidden{display:none!important;}
+.scrollable{overflow-y:auto;max-height:calc(100vh - 180px);}
+.scrollable::-webkit-scrollbar{width:3px;}
+.scrollable::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px;}
+
+/* responsive note */
+.col-progress{
+  font-family:'JetBrains Mono',monospace;font-size:10px;
+  color:var(--muted);margin-top:8px;
+  display:flex;align-items:center;gap:6px;
+}
+.prog-bar{
+  flex:1;height:3px;background:var(--border);border-radius:2px;overflow:hidden;
+}
+.prog-fill{
+  height:100%;background:var(--blue);border-radius:2px;
+  transition:width .3s;
+}
+.prog-fill.purple{background:var(--purple);}
+
+/* rolling animation */
+@keyframes spin{
+  0%{content:'⚀';}14%{content:'⚁';}28%{content:'⚂';}42%{content:'⚃';}
+  57%{content:'⚄';}71%{content:'⚅';}85%{content:'⚀';}100%{content:'⚁';}
+}
+.rolling .sc-output::after{
+  content:'🎲';animation:rollAnim .15s steps(1) infinite;
+}
+@keyframes rollAnim{
+  0%{content:'⚀';}16%{content:'⚁';}32%{content:'⚂';}
+  48%{content:'⚃';}64%{content:'⚄';}80%{content:'⚅';}
+}
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════
+     SETUP SCREEN
+══════════════════════════════════════ -->
+<div id="setup-screen">
+  <div class="setup-hero">
+    <h1>CNN <em>Classroom</em><br>Simulator</h1>
+    <p>// students become neurons · convolution layer · live backprop</p>
+  </div>
+
+  <div class="setup-cards">
+    <div class="setup-card">
+      <div class="setup-card-label">Total Students</div>
+      <div class="setup-card-val" id="s-total">17</div>
+      <div class="setup-card-sub">neurons total</div>
+      <div class="stepper">
+        <button class="step-btn" onclick="adj('total',-1)">−</button>
+        <span class="step-val" id="sv-total">17</span>
+        <button class="step-btn" onclick="adj('total',1)">+</button>
+      </div>
+    </div>
+    <div class="setup-card">
+      <div class="setup-card-label">Group A — Sensors</div>
+      <div class="setup-card-val" id="s-a">9</div>
+      <div class="setup-card-sub">roll dice · fire or silent</div>
+    </div>
+    <div class="setup-card">
+      <div class="setup-card-label">Group B — Evaluators</div>
+      <div class="setup-card-val" id="s-b">8</div>
+      <div class="setup-card-sub">sliding window pairs</div>
+    </div>
+    <div class="setup-card">
+      <div class="setup-card-label">Fire Threshold</div>
+      <div class="setup-card-val" id="s-thresh">5</div>
+      <div class="setup-card-sub">Σ Group B ≥ threshold → GREEN</div>
+      <div class="stepper">
+        <button class="step-btn" onclick="adj('thresh',-1)">−</button>
+        <span class="step-val" id="sv-thresh">5</span>
+        <button class="step-btn" onclick="adj('thresh',1)">+</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="setup-structure">
+    <div class="struct-title">How it works — CNN Pipeline</div>
+    <div class="struct-row">
+      <div class="struct-dot a"></div>
+      <span class="struct-label">Input Layer (Group A)</span>
+      <span class="struct-val">Roll dice → output 0 or 1 × weight (default <b style="color:var(--yellow)">5</b>)</span>
+    </div>
+    <div class="struct-row">
+      <div class="struct-dot b"></div>
+      <span class="struct-label">Conv Layer (Group B)</span>
+      <span class="struct-val">Sliding window: each watches 2 adjacent sensors</span>
+    </div>
+    <div class="struct-row">
+      <div class="struct-dot b"></div>
+      <span class="struct-label">B reports to teacher</span>
+      <span class="struct-val">Combined score + helped / hurt final answer</span>
+    </div>
+    <div class="struct-row">
+      <div class="struct-dot out"></div>
+      <span class="struct-label">Output</span>
+      <span class="struct-val">Σ all B scores ≥ threshold → 🟢 GREEN else 🔴 RED</span>
+    </div>
+  </div>
+
+  <button class="btn-start" onclick="startSim()">Begin Class →</button>
+</div>
+
+<!-- ══════════════════════════════════════
+     MAIN APP
+══════════════════════════════════════ -->
+<div id="app-screen" class="hidden">
+
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <div class="topbar-brand">CNN<span>Classroom</span></div>
+    <div class="topbar-divider"></div>
+    <div class="phase-pill" id="phase-pill">
+      <div class="phase-dot"></div>
+      <span id="phase-text">Waiting</span>
+    </div>
+    <div class="topbar-divider"></div>
+    <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted);">
+      Round <span id="round-num" style="color:var(--text);font-weight:700;">0</span>
+    </div>
+    <div class="topbar-right">
+      <div class="stats-row">
+        <div class="stat">✓ <span class="stat-val green-v" id="stat-correct">0</span></div>
+        <div class="stat">✗ <span class="stat-val red-v" id="stat-wrong">0</span></div>
+        <div class="stat">Acc <span class="stat-val" id="stat-acc">—</span></div>
+      </div>
+      <div class="target-capsule">
+        TARGET:
+        <div class="target-bulb" id="target-bulb"></div>
+        <span class="target-name" id="target-name">—</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- COLUMNS -->
+  <div class="columns">
+
+    <!-- ── COL A: Sensor Neurons ── -->
+    <div class="col" id="col-a">
+      <div class="col-header">
+        <div class="col-tag a">● Group A — Input Layer</div>
+        <div class="col-title">Sensor Neurons</div>
+        <div class="col-subtitle">
+          Roll your dice. 4–6 → <span style="color:var(--green)">FIRE (1)</span> · 1–3 → <span style="color:var(--red)">SILENT (0)</span><br>
+          Your signal = output × weight. Default weight = <span style="color:var(--yellow)">5</span>.
+        </div>
+        <div class="col-progress">
+          <span id="roll-prog-text">0 rolled</span>
+          <div class="prog-bar"><div class="prog-fill" id="roll-prog-bar" style="width:0%"></div></div>
+        </div>
+      </div>
+      <div class="sensors-grid scrollable" id="sensor-grid"></div>
+    </div>
+
+    <!-- ── COL B: Convolution Layer ── -->
+    <div class="col" id="col-b">
+      <div class="col-header">
+        <div class="col-tag b">● Group B — Convolution Layer</div>
+        <div class="col-title">Evaluator Neurons</div>
+        <div class="col-subtitle">
+          Each of you watches a <b>sliding window of 2 sensors</b>.<br>
+          Compute: (S<sub>i</sub>×w<sub>i</sub>) + (S<sub>i+1</sub>×w<sub>i+1</sub>) = your score.<br>
+          <b>Report to teacher</b>: your score + did it help or hurt?
+        </div>
+        <div class="col-progress">
+          <span id="report-prog-text">0 reported</span>
+          <div class="prog-bar"><div class="prog-fill purple" id="report-prog-bar" style="width:0%"></div></div>
+        </div>
+      </div>
+      <div class="conv-list scrollable" id="conv-grid"></div>
+    </div>
+
+    <!-- ── COL OUT: Output Panel ── -->
+    <div class="col out-col">
+      <div class="col-header">
+        <div class="col-tag out">● Output</div>
+        <div class="col-title">Final Decision</div>
+      </div>
+
+      <div class="out-section">
+        <div class="out-label">Conv Layer Scores</div>
+        <div class="conv-scores-list" id="conv-scores-list"></div>
+      </div>
+
+      <div class="out-section">
+        <div class="out-label">Total Σ</div>
+        <div class="total-display">
+          <div class="total-big" id="total-sum">—</div>
+          <div class="total-unit">/ pts</div>
+        </div>
+        <div class="threshold-rule">
+          If Σ ≥ <span id="thresh-show">?</span> → 🟢 GREEN<br>
+          If Σ &lt; <span id="thresh-show2">?</span> → 🔴 RED
+        </div>
+        <div class="output-orb" id="output-orb">❓</div>
+        <div class="verdict-box" id="verdict-box">Waiting for all sensors to roll...</div>
+      </div>
+
+      <div class="out-section">
+        <div class="out-label">Round History</div>
+        <div class="history-list" id="history-list"></div>
+      </div>
+    </div>
+
+  </div><!-- /columns -->
+
+  <!-- ACTION BAR -->
+  <div class="action-bar">
+    <div class="ab-info" id="ab-info">Ready to start a new round.</div>
+    <button class="btn-ab ghost" onclick="autoRollAll()">Auto-Roll All</button>
+    <button class="btn-ab purple" id="btn-report-all" onclick="autoReportAll()" disabled>Auto-Report All</button>
+    <button class="btn-ab green" id="btn-evaluate" onclick="evaluateRound()" disabled>Evaluate Round →</button>
+    <button class="btn-ab danger" onclick="newRound()">New Round ↺</button>
+  </div>
+
+</div><!-- /app-screen -->
+
+<script>
+// ══════════════════════════════════════
+// STATE
+// ══════════════════════════════════════
+const S = {
+  total: 17, sensorCount: 9, evalCount: 8,
+  threshold: 5, round: 0,
+  target: null,           // 'GREEN' | 'RED'
+  sensors: [],            // {id, name, weight, output, diceVal}
+  evaluators: [],         // {id, name, s1idx, s2idx, score, reported, effect}
+  correctCount: 0, wrongCount: 0,
+  history: [],
+  phase: 'idle',          // idle | rolling | reporting | done
+};
+
+// ══════════════════════════════════════
+// SETUP
+// ══════════════════════════════════════
+let _total = 17, _thresh = 5;
+
+function adj(key, d) {
+  if (key === 'total') {
+    _total = Math.max(4, Math.min(30, _total + d));
+    document.getElementById('sv-total').textContent = _total;
+    document.getElementById('s-total').textContent = _total;
+    const sc = Math.ceil(_total / 2);
+    const ec = _total - sc;
+    document.getElementById('s-a').textContent = sc;
+    document.getElementById('s-b').textContent = ec;
+  }
+  if (key === 'thresh') {
+    _thresh = Math.max(1, Math.min(50, _thresh + d));
+    document.getElementById('sv-thresh').textContent = _thresh;
+    document.getElementById('s-thresh').textContent = _thresh;
+  }
+}
+
+function startSim() {
+  S.total = _total;
+  S.sensorCount = Math.ceil(_total / 2);
+  S.evalCount = _total - S.sensorCount;
+  S.threshold = _thresh;
+  S.correctCount = 0; S.wrongCount = 0;
+  S.history = [];
+
+  // Build sensors — default weight 5
+  S.sensors = Array.from({length: S.sensorCount}, (_, i) => ({
+    id: i, name: `S${i+1}`,
+    studentName: `Student ${i+1}`,
+    weight: 5,
+    output: null, diceVal: null,
+  }));
+
+  // Build evaluators — sliding window pairs
+  // E_i watches sensor i and sensor (i+1) mod sensorCount
+  S.evaluators = Array.from({length: S.evalCount}, (_, i) => ({
+    id: i, name: `E${i+1}`,
+    studentName: `Student ${S.sensorCount + i + 1}`,
+    s1idx: i % S.sensorCount,
+    s2idx: (i + 1) % S.sensorCount,
+    score: null, reported: false, effect: null,
+  }));
+
+  document.getElementById('setup-screen').classList.add('hidden');
+  document.getElementById('app-screen').classList.remove('hidden');
+  ['thresh-show','thresh-show2'].forEach(id =>
+    document.getElementById(id).textContent = S.threshold
+  );
+  newRound();
+}
+
+// ══════════════════════════════════════
+// ROUND MANAGEMENT
+// ══════════════════════════════════════
+function newRound() {
+  S.round++;
+  S.phase = 'rolling';
+  S.target = Math.random() < .5 ? 'GREEN' : 'RED';
+
+  S.sensors.forEach(s => { s.output = null; s.diceVal = null; });
+  S.evaluators.forEach(e => { e.score = null; e.reported = false; e.effect = null; });
+
+  // topbar
+  document.getElementById('round-num').textContent = S.round;
+  setPhase('roll', '① Roll Phase — Group A');
+
+  // target
+  const bulb = document.getElementById('target-bulb');
+  bulb.className = 'target-bulb ' + S.target.toLowerCase();
+  document.getElementById('target-name').textContent = S.target;
+
+  // reset output panel
+  document.getElementById('total-sum').textContent = '—';
+  document.getElementById('total-sum').classList.remove('has-val');
+  document.getElementById('output-orb').className = 'output-orb';
+  document.getElementById('output-orb').textContent = '❓';
+  document.getElementById('verdict-box').className = 'verdict-box';
+  document.getElementById('verdict-box').textContent = 'Waiting for all sensors to roll...';
+
+  document.getElementById('btn-evaluate').disabled = true;
+  document.getElementById('btn-report-all').disabled = true;
+
+  renderSensors();
+  renderEvaluators();
+  renderConvScores();
+  updateProgress();
+  setAbInfo('Group A: each student clicks Roll Dice 🎲 to fire or stay silent.');
+}
+
+// ══════════════════════════════════════
+// SENSORS
+// ══════════════════════════════════════
+function renderSensors() {
+  const grid = document.getElementById('sensor-grid');
+  grid.innerHTML = '';
+  S.sensors.forEach((s, i) => {
+    const rolled = s.output !== null;
+    const card = document.createElement('div');
+    card.id = `sc-${i}`;
+    card.className = 'sensor-card' + (rolled ? (s.output ? ' fired' : ' silent') : '');
+    card.style.animationDelay = (i * .03) + 's';
+    card.innerHTML = `
+      <div class="sc-label">${s.name}</div>
+      <div class="sc-student">${s.studentName}</div>
+      <div class="sc-output">${rolled ? s.output : '?'}</div>
+      ${rolled ? `<div class="dice-pip">dice: ${s.diceVal} ${s.diceVal >= 4 ? '→ FIRE' : '→ silent'}</div>` : ''}
+      <div class="sc-weight">w = ${s.weight}</div>
+      <button class="roll-dice-btn" onclick="rollSensor(${i})"
+        ${rolled || S.phase !== 'rolling' ? 'disabled' : ''}>🎲 Roll Dice</button>
+    `;
+    grid.appendChild(card);
+  });
+}
+
+function rollSensor(i) {
+  if (S.phase !== 'rolling') return;
+  const dice = Math.floor(Math.random() * 6) + 1;
+  S.sensors[i].diceVal = dice;
+  S.sensors[i].output = dice >= 4 ? 1 : 0;
+
+  // animate
+  const card = document.getElementById(`sc-${i}`);
+  if (card) {
+    card.classList.add('rolling');
+    setTimeout(() => {
+      card.classList.remove('rolling');
+      renderSensors();
+      card.classList.add('pop');
+      updateProgress();
+      checkAllRolled();
+    }, 400);
+  }
+}
+
+function autoRollAll() {
+  if (S.phase !== 'rolling') return;
+  S.sensors.forEach((s, i) => {
+    if (s.output === null) {
+      const dice = Math.floor(Math.random() * 6) + 1;
+      s.diceVal = dice;
+      s.output = dice >= 4 ? 1 : 0;
+    }
+  });
+  renderSensors();
+  updateProgress();
+  checkAllRolled();
+}
+
+function checkAllRolled() {
+  const allDone = S.sensors.every(s => s.output !== null);
+  if (allDone) {
+    S.phase = 'reporting';
+    setPhase('conv', '② Report Phase — Group B');
+    setAbInfo('Group A done! Group B: compute your pair score and click "Report to Teacher".');
+    document.getElementById('btn-report-all').disabled = false;
+    renderEvaluators(); // unlock report buttons
+    updateConvScores();
+  }
+}
+
+// ══════════════════════════════════════
+// EVALUATORS (CONVOLUTION)
+// ══════════════════════════════════════
+function renderEvaluators() {
+  const grid = document.getElementById('conv-grid');
+  grid.innerHTML = '';
+  S.evaluators.forEach((e, i) => {
+    const s1 = S.sensors[e.s1idx];
+    const s2 = S.sensors[e.s2idx];
+    const canReport = S.phase === 'reporting' && !e.reported;
+    const canAdjust = S.phase === 'done';
+
+    // compute score if sensors rolled
+    const computedScore = (s1.output !== null && s2.output !== null)
+      ? (s1.output * s1.weight) + (s2.output * s2.weight) : null;
+
+    const card = document.createElement('div');
+    card.id = `cc-${i}`;
+    card.className = 'conv-card'
+      + (e.reported ? ' reported' : '')
+      + (e.effect === 'helped' ? ' helped' : '')
+      + (e.effect === 'hurt' ? ' hurt' : '');
+    card.style.animationDelay = (i * .04) + 's';
+
+    const k1cls = s1.output === 1 ? 'kc-fired' : s1.output === 0 ? 'kc-silent' : '';
+    const k2cls = s2.output === 1 ? 'kc-fired' : s2.output === 0 ? 'kc-silent' : '';
+
+    card.innerHTML = `
+      <div class="cc-header">
+        <div class="cc-id">${e.name}</div>
+        <div class="cc-student">${e.studentName}</div>
+        <div class="cc-badge">S${e.s1idx+1} + S${e.s2idx+1}</div>
+      </div>
+
+      <div class="cc-kernel">
+        <div class="kernel-cell ${k1cls}">
+          <div class="kc-name">S${e.s1idx+1} <em class="kc-w">w=${s1.weight}</em></div>
+          <div class="kc-val">${s1.output !== null ? s1.output : '?'}</div>
+        </div>
+        <div class="cc-op">+</div>
+        <div class="kernel-cell ${k2cls}">
+          <div class="kc-name">S${e.s2idx+1} <em class="kc-w">w=${s2.weight}</em></div>
+          <div class="kc-val">${s2.output !== null ? s2.output : '?'}</div>
+        </div>
+        <div class="cc-eq">=</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:18px;font-weight:700;color:${computedScore!==null?'var(--yellow)':'var(--muted2)'};">
+          ${computedScore !== null ? computedScore : '?'}
+        </div>
+      </div>
+
+      <div class="cc-score-row">
+        <div class="cc-score-label">My score:</div>
+        <div class="cc-score-val ${e.score !== null ? 'has-score' : ''}">
+          ${e.score !== null ? e.score : (computedScore !== null ? computedScore : '—')}
+        </div>
+      </div>
+
+      ${!e.reported ? `
+        <button class="cc-report-btn" onclick="reportEvaluator(${i})"
+          ${canReport && computedScore !== null ? '' : 'disabled'}>
+          📢 Report to Teacher
+        </button>
+      ` : `
+        <div class="report-tag ${e.effect}">
+          ${e.effect === 'helped' ? '✓ Helped → Prediction correct!' : e.effect === 'hurt' ? '✗ Hurt → Contributed to wrong answer' : '⊘ Score was 0 (neutral)'}
+        </div>
+      `}
+
+      ${canAdjust ? `
+        <div class="weight-adj-row">
+          <div class="weight-adj-label">Adjust weights after wrong:</div>
+          <div class="wadj-sensor-name">S${e.s1idx+1}</div>
+          <button class="wadj-btn minus" onclick="adjustW(${e.s1idx},-1)">−</button>
+          <span class="wadj-val" id="wv-${e.s1idx}">${s1.weight}</span>
+          <button class="wadj-btn plus" onclick="adjustW(${e.s1idx},+1)">+</button>
+          <div class="wadj-sensor-name" style="margin-left:6px;">S${e.s2idx+1}</div>
+          <button class="wadj-btn minus" onclick="adjustW(${e.s2idx},-1)">−</button>
+          <span class="wadj-val" id="wv-${e.s2idx}">${s2.weight}</span>
+          <button class="wadj-btn plus" onclick="adjustW(${e.s2idx},+1)">+</button>
+        </div>
+      ` : ''}
+    `;
+    grid.appendChild(card);
+  });
+}
+
+function reportEvaluator(i) {
+  if (S.phase !== 'reporting') return;
+  const e = S.evaluators[i];
+  const s1 = S.sensors[e.s1idx];
+  const s2 = S.sensors[e.s2idx];
+  if (s1.output === null || s2.output === null) return;
+
+  e.score = (s1.output * s1.weight) + (s2.output * s2.weight);
+  e.reported = true;
+
+  // compute current total to determine effect
+  const reportedSum = S.evaluators.filter(ev => ev.reported).reduce((a,ev) => a + (ev.score||0), 0);
+  // effect: does this evaluator's score push total above threshold?
+  // Simplified: if score > 0 and final answer matches target = helped; else hurt; 0 = neutral
+  // We determine true effect after evaluate, so for now mark tentative
+  e.effect = e.score > 0 ? 'helped' : e.score === 0 ? 'neutral' : 'hurt';
+
+  renderEvaluators();
+  updateConvScores();
+  updateProgress();
+  checkAllReported();
+}
+
+function autoReportAll() {
+  if (S.phase !== 'reporting') return;
+  S.evaluators.forEach((e, i) => {
+    if (!e.reported) reportEvaluator(i);
+  });
+}
+
+function checkAllReported() {
+  const allDone = S.evaluators.every(e => e.reported);
+  if (allDone) {
+    document.getElementById('btn-evaluate').disabled = false;
+    setAbInfo('All Group B scores reported! Press "Evaluate Round" to see if the network is correct.');
+    updateTotalSum();
+  }
+}
+
+// ══════════════════════════════════════
+// OUTPUT PANEL
+// ══════════════════════════════════════
+function renderConvScores() {
+  const list = document.getElementById('conv-scores-list');
+  list.innerHTML = S.evaluators.map(e => `
+    <div class="conv-score-row ${e.reported ? 'active' : ''}" id="csr-${e.id}">
+      <span class="csr-id">${e.name}</span>
+      <span class="csr-pair">S${e.s1idx+1}+S${e.s2idx+1}</span>
+      <span class="csr-val ${e.score === null ? 'pending' : ''}">${e.score !== null ? e.score : '—'}</span>
+    </div>
+  `).join('');
+}
+
+function updateConvScores() {
+  S.evaluators.forEach(e => {
+    const row = document.getElementById(`csr-${e.id}`);
+    if (!row) return;
+    row.className = 'conv-score-row ' + (e.reported ? 'active' : '');
+    const valEl = row.querySelector('.csr-val');
+    if (valEl) {
+      valEl.className = 'csr-val' + (e.score === null ? ' pending' : '');
+      valEl.textContent = e.score !== null ? e.score : '—';
+    }
+  });
+  updateTotalSum();
+}
+
+function updateTotalSum() {
+  const reported = S.evaluators.filter(e => e.reported);
+  if (reported.length === 0) return;
+  const sum = reported.reduce((a, e) => a + (e.score || 0), 0);
+  const el = document.getElementById('total-sum');
+  el.textContent = sum;
+  el.classList.add('has-val');
+}
+
+function evaluateRound() {
+  if (S.phase !== 'reporting') return;
+  S.phase = 'done';
+
+  const sum = S.evaluators.reduce((a, e) => a + (e.score || 0), 0);
+  const prediction = sum >= S.threshold ? 'GREEN' : 'RED';
+  const correct = prediction === S.target;
+
+  // Update evaluator effects based on correct answer
+  S.evaluators.forEach(e => {
+    if (e.score === 0) { e.effect = 'neutral'; return; }
+    if (correct) { e.effect = 'helped'; }
+    else {
+      // if sensor fired (score>0) but answer was wrong, it hurt
+      e.effect = e.score > 0 ? 'hurt' : 'helped';
+    }
+  });
+
+  // orb
+  const orb = document.getElementById('output-orb');
+  orb.className = 'output-orb ' + (prediction === 'GREEN' ? 'green-orb' : 'red-orb');
+  orb.textContent = prediction === 'GREEN' ? '🟢' : '🔴';
+
+  // verdict
+  const vbox = document.getElementById('verdict-box');
+  if (correct) {
+    vbox.className = 'verdict-box correct';
+    vbox.textContent = '✓ CORRECT! Network predicted the right color.';
+    S.correctCount++;
+  } else {
+    vbox.className = 'verdict-box wrong';
+    vbox.textContent = `✗ WRONG! Predicted ${prediction} but target was ${S.target}. Group B: adjust weights!`;
+    S.wrongCount++;
+  }
+
+  // stats
+  const t = S.correctCount + S.wrongCount;
+  document.getElementById('stat-correct').textContent = S.correctCount;
+  document.getElementById('stat-wrong').textContent = S.wrongCount;
+  document.getElementById('stat-acc').textContent = t ? Math.round(S.correctCount/t*100)+'%' : '—';
+
+  // history
+  S.history.unshift({round: S.round, target: S.target, prediction, sum, correct});
+  renderHistory();
+
+  setPhase('done', correct ? '✓ Correct! Start new round.' : '✗ Wrong — Adjust weights below, then new round.');
+  setAbInfo(correct
+    ? `✓ Correct! Σ = ${sum} ≥ ${S.threshold} → ${prediction}. Great work! Start a new round.`
+    : `✗ Wrong! Σ = ${sum} (threshold ${S.threshold}). Group B — adjust weights on the sensors that need fixing, then start a new round.`
+  );
+
+  renderEvaluators(); // show weight adjust controls
+}
+
+function renderHistory() {
+  const list = document.getElementById('history-list');
+  list.innerHTML = S.history.slice(0, 6).map(h => `
+    <div class="hist-row">
+      <span class="hr-round">#${h.round}</span>
+      <span class="hr-target" style="color:${h.target==='GREEN'?'var(--green)':'var(--red)'}">${h.target}</span>
+      <span style="color:var(--muted);font-size:9px;">→</span>
+      <span class="hr-got" style="color:${h.prediction==='GREEN'?'var(--green)':'var(--red)'}">${h.prediction}</span>
+      <span class="hr-sum">Σ=${h.sum}</span>
+      <span class="hr-result ${h.correct?'c':'w'}">${h.correct?'✓':'✗'}</span>
+    </div>
+  `).join('');
+}
+
+// ══════════════════════════════════════
+// WEIGHT ADJUSTMENT
+// ══════════════════════════════════════
+function adjustW(sensorIdx, delta) {
+  S.sensors[sensorIdx].weight = Math.max(0, Math.min(20, S.sensors[sensorIdx].weight + delta));
+  // update all weight display spans
+  document.querySelectorAll(`#wv-${sensorIdx}`).forEach(el => {
+    el.textContent = S.sensors[sensorIdx].weight;
+  });
+  // update sensor grid weight badges
+  const sc = document.getElementById(`sc-${sensorIdx}`);
+  if (sc) {
+    const wb = sc.querySelector('.sc-weight');
+    if (wb) wb.textContent = `w = ${S.sensors[sensorIdx].weight}`;
+  }
+  // update conv card kernel weights
+  renderEvaluators();
+}
+
+// ══════════════════════════════════════
+// HELPERS
+// ══════════════════════════════════════
+function setPhase(key, text) {
+  const pill = document.getElementById('phase-pill');
+  pill.className = 'phase-pill phase-' + key;
+  document.getElementById('phase-text').textContent = text;
+}
+
+function setAbInfo(text) {
+  document.getElementById('ab-info').innerHTML = text;
+}
+
+function updateProgress() {
+  const rolled = S.sensors.filter(s => s.output !== null).length;
+  const total = S.sensors.length;
+  document.getElementById('roll-prog-text').textContent = `${rolled} / ${total} rolled`;
+  document.getElementById('roll-prog-bar').style.width = (rolled/total*100) + '%';
+
+  const reported = S.evaluators.filter(e => e.reported).length;
+  const etotal = S.evaluators.length;
+  document.getElementById('report-prog-text').textContent = `${reported} / ${etotal} reported`;
+  document.getElementById('report-prog-bar').style.width = (reported/etotal*100) + '%';
+}
+</script>
+</body>
+</html>
 

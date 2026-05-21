@@ -304,7 +304,7 @@ body::before {
 .columns {
   flex: 1;
   display: grid;
-  grid-template-columns: 1fr 1fr 260px;
+  grid-template-columns: 1fr 260px;
   min-height: 0; /* critical for flex child scrolling */
   border-bottom: 1.5px solid var(--border);
 }
@@ -444,6 +444,8 @@ body::before {
   opacity: .35; cursor: not-allowed;
   background: var(--muted2); box-shadow: none;
 }
+.sensor-card.clickable { cursor: pointer; }
+.sensor-card.clickable:hover { transform: translateY(-2px); box-shadow: var(--shadow); border-color: var(--blue-mid); }
 
 /* ─────────────────────────────────────────
    CONVOLUTION CARDS
@@ -688,7 +690,7 @@ body::before {
 /* back link */
 .back-link {
   display: inline-flex; align-items: center; gap: 6px;
-  text-decoration: none;
+  text-decoration: none; cursor: pointer;
   background: var(--bg2); border: 1.5px solid var(--border2);
   border-radius: 999px; padding: 4px 12px 4px 8px;
   font-family: 'DM Mono', monospace; font-size: 11px;
@@ -711,6 +713,43 @@ body::before {
   100% { transform: scale(1); }
 }
 .pop { animation: pop .28s ease; }
+
+.kc-inp {
+  width: 52px; padding: 4px 6px;
+  border: 1.5px solid var(--border2);
+  border-radius: 7px;
+  background: var(--surface);
+  color: var(--text);
+  font-family: 'DM Mono', monospace;
+  font-size: 16px; font-weight: 700;
+  text-align: center;
+  outline: none;
+  transition: border-color .15s, box-shadow .15s;
+  margin-top: 2px;
+}
+.kc-inp:focus {
+  border-color: var(--blue-mid);
+  box-shadow: 0 0 0 3px var(--blue-soft);
+}
+.kc-inp::placeholder { color: var(--muted2); font-size: 11px; }
+
+.score-input {
+  width: 70px; padding: 5px 8px;
+  border: 1.5px solid var(--border2);
+  border-radius: 8px;
+  background: var(--bg2);
+  color: var(--text);
+  font-family: 'DM Mono', monospace;
+  font-size: 15px; font-weight: 500;
+  text-align: center;
+  transition: border-color .15s, box-shadow .15s;
+  outline: none;
+}
+.score-input:focus {
+  border-color: var(--purple-mid);
+  box-shadow: 0 0 0 3px var(--purple-soft);
+}
+.score-input::placeholder { color: var(--muted2); }
 
 .hidden { display: none !important; }
 </style>
@@ -795,7 +834,7 @@ body::before {
 
   <!-- TOPBAR -->
   <div class="topbar">
-    <button class="back-link" onclick="resetClass(true)">
+    <button class="back-link" onclick="goToSetup()">
       <span class="back-arrow">←</span> Back
     </button>
     <div class="tb-divider"></div>
@@ -825,33 +864,14 @@ body::before {
   <!-- THREE COLUMNS -->
   <div class="columns">
 
-    <!-- COL A -->
-    <div class="col">
-      <div class="col-head">
-        <div class="col-tag a">● Group A — Input Layer</div>
-        <div class="col-title">Sensor Neurons</div>
-        <div class="col-sub">
-          Roll dice → 4–6 = <b>FIRE (1)</b> · 1–3 = <b>SILENT (0)</b><br>
-          Contribution = output × weight. Default weight = <b>5</b>.
-        </div>
-        <div class="prog-wrap">
-          <span class="prog-txt" id="roll-txt">0 rolled</span>
-          <div class="prog-bar"><div class="prog-fill blue" id="roll-bar" style="width:0%"></div></div>
-        </div>
-      </div>
-      <div class="col-body">
-        <div class="sensors-grid" id="sensor-grid"></div>
-      </div>
-    </div>
-
     <!-- COL B -->
     <div class="col">
       <div class="col-head">
         <div class="col-tag b">● Group B — Convolution Layer</div>
         <div class="col-title">Evaluator Neurons</div>
         <div class="col-sub">
-          Sliding window: each watches <b>2 adjacent sensors</b>.<br>
-          Score = (S_i×w_i) + (S_{i+1}×w_{i+1}). Report aloud!
+          Each evaluator watches <b>2 adjacent sensors</b> (sliding window).<br>
+          Enter sensor outputs heard from Group A, then report your score.
         </div>
         <div class="prog-wrap">
           <span class="prog-txt" id="report-txt">0 reported</span>
@@ -901,7 +921,6 @@ body::before {
   <!-- ACTION BAR -->
   <div class="action-bar">
     <div class="ab-info" id="ab-info">Press "New Round" to begin.</div>
-    <button class="btn btn-ghost" onclick="autoRollAll()">Auto-Roll All</button>
     <button class="btn btn-purple" id="btn-report" onclick="autoReportAll()" disabled>Auto-Report All</button>
     <button class="btn btn-green" id="btn-eval" onclick="evaluateRound()" disabled>Evaluate →</button>
     <button class="btn btn-red" onclick="newRound()">New Round ↺</button>
@@ -973,7 +992,7 @@ function newRound() {
   G.evals.forEach(e => { e.score = null; e.reported = false; e.effect = null; });
 
   document.getElementById('rnd-num').textContent = G.round;
-  setPhase('roll', '① Roll Phase — Group A');
+  setPhase('roll', '① Input Phase — Group A reports verbally');
 
   const bulb = document.getElementById('target-bulb');
   bulb.className = 'target-bulb ' + G.target.toLowerCase();
@@ -984,64 +1003,29 @@ function newRound() {
   document.getElementById('output-orb').className = 'output-orb';
   document.getElementById('output-orb').textContent = '❓';
   document.getElementById('verdict-box').className = 'verdict-box';
-  document.getElementById('verdict-box').textContent = 'Roll all sensors first...';
+  document.getElementById('verdict-box').textContent = 'Enter sensor outputs in Group B cards...';
   document.getElementById('btn-eval').disabled = true;
-  document.getElementById('btn-report').disabled = true;
+  document.getElementById('btn-report').disabled = false;
 
-  renderSensors(); renderEvals(); renderConvScores(); updateProgress();
-  setInfo('Group A: each student clicks Roll Dice 🎲');
+  G.phase = 'reporting';
+  setPhase('conv', '② Input Phase — Enter sensor outputs');
+  renderEvals(); renderConvScores(); updateProgress();
+  setInfo('Group A students roll dice and report verbally. Enter each sensor output directly on the Group B evaluator cards.');
 }
 
 /* ─────────────────────────────────────────
    SENSORS
 ───────────────────────────────────────── */
-function renderSensors() {
-  const g = document.getElementById('sensor-grid');
-  g.innerHTML = '';
-  G.sensors.forEach((s, i) => {
-    const rolled = s.output !== null;
-    const cls = rolled ? (s.output ? 'fired' : 'silent') : '';
-    const d = document.createElement('div');
-    d.id = `sc-${i}`; d.className = `sensor-card ${cls}`;
-    d.style.animationDelay = (i * .025) + 's';
-    d.innerHTML = `
-      <div class="sc-name">${s.name}</div>
-      <div class="sc-student">${s.student}</div>
-      <div class="sc-out">${rolled ? s.output : '?'}</div>
-      ${rolled ? `<div class="sc-dice">dice: ${s.dice} ${s.dice >= 4 ? '→ fire' : '→ silent'}</div>` : ''}
-      <div class="sc-w">w = ${s.weight}</div>
-      <button class="roll-btn" onclick="rollSensor(${i})"
-        ${rolled || G.phase !== 'rolling' ? 'disabled' : ''}>🎲 Roll</button>
-    `;
-    g.appendChild(d);
-  });
-}
-
-function rollSensor(i) {
-  if (G.phase !== 'rolling') return;
-  const dice = Math.floor(Math.random() * 6) + 1;
-  G.sensors[i].dice = dice; G.sensors[i].output = dice >= 4 ? 1 : 0;
-  renderSensors();
-  const card = document.getElementById(`sc-${i}`);
-  if (card) { card.classList.add('pop'); setTimeout(() => card.classList.remove('pop'), 300); }
-  updateProgress(); checkAllRolled();
-}
-
-function autoRollAll() {
-  if (G.phase !== 'rolling') return;
-  G.sensors.forEach((s, i) => {
-    if (s.output === null) { const d = Math.floor(Math.random()*6)+1; s.dice=d; s.output=d>=4?1:0; }
-  });
-  renderSensors(); updateProgress(); checkAllRolled();
-}
-
 function checkAllRolled() {
-  if (!G.sensors.every(s => s.output !== null)) return;
-  G.phase = 'reporting';
-  setPhase('conv', '② Report Phase — Group B');
-  setInfo('All sensors rolled! Group B: compute your score and click Report to Teacher.');
-  document.getElementById('btn-report').disabled = false;
-  renderEvals(); renderConvScores();
+  // Move to reporting phase as soon as any sensor has data — teacher sets progressively
+  const anyData = G.sensors.some(s => s.output !== null);
+  if (!anyData) return;
+  if (G.phase === 'rolling') {
+    G.phase = 'reporting';
+    setPhase('conv', '② Report Phase — Group B');
+    setInfo('Enter sensor outputs on each evaluator card, then report scores to the teacher.');
+    document.getElementById('btn-report').disabled = false;
+  }
 }
 
 /* ─────────────────────────────────────────
@@ -1077,23 +1061,39 @@ function renderEvals() {
       <div class="cc-kernel">
         <div class="kc ${k1cls}">
           <div class="kc-lbl">S${e.s1+1} <span class="kc-w">w=${s1.weight}</span></div>
-          <div class="kc-v">${s1.output !== null ? s1.output : '?'}</div>
+          ${!e.reported
+            ? `<input class="kc-inp" id="s1inp-${i}" type="number" min="0" max="1"
+                placeholder="0/1" value="${s1.output !== null ? s1.output : ''}"
+                oninput="onSensorInput(${i})" />`
+            : `<div class="kc-v ${k1cls}">${s1.output !== null ? s1.output : '?'}</div>`
+          }
         </div>
         <div class="cc-op">+</div>
         <div class="kc ${k2cls}">
           <div class="kc-lbl">S${e.s2+1} <span class="kc-w">w=${s2.weight}</span></div>
-          <div class="kc-v">${s2.output !== null ? s2.output : '?'}</div>
+          ${!e.reported
+            ? `<input class="kc-inp" id="s2inp-${i}" type="number" min="0" max="1"
+                placeholder="0/1" value="${s2.output !== null ? s2.output : ''}"
+                oninput="onSensorInput(${i})" />`
+            : `<div class="kc-v ${k2cls}">${s2.output !== null ? s2.output : '?'}</div>`
+          }
         </div>
         <div class="cc-eq">=</div>
-        <div class="cc-total ${computed!==null?'has':''}">${computed !== null ? computed : '?'}</div>
+        <div class="cc-total ${computed!==null?'has':''}" id="computed-${i}">${computed !== null ? computed : '?'}</div>
       </div>
       <div class="cc-score-row">
-        <div class="cc-score-lbl">My score:</div>
-        <div class="cc-score-v ${e.score!==null?'has':''}">${e.score !== null ? e.score : (computed !== null ? computed : '—')}</div>
+        <div class="cc-score-lbl">Reported score:</div>
+        ${!e.reported
+          ? `<input class="score-input" id="score-inp-${i}" type="number" min="0" max="999"
+              placeholder="${computed !== null ? computed : '?'}"
+              value="${computed !== null ? computed : ''}"
+              oninput="onScoreInput(${i})" />`
+          : `<div class="cc-score-v has">${e.score}</div>`
+        }
       </div>
       ${!e.reported
-        ? `<button class="report-btn" onclick="reportEval(${i})"
-            ${canReport && computed !== null ? '' : 'disabled'}>📢 Report to Teacher</button>`
+        ? `<button class="report-btn" id="rbtn-${i}" onclick="reportEval(${i})"
+            ${canReport ? '' : 'disabled'}>📢 Report to Teacher</button>`
         : `<div class="report-tag ${e.effect}">${
             e.effect === 'helped' ? '✓ Helped — contributed correctly'
             : e.effect === 'hurt' ? '✗ Hurt — contributed to wrong answer'
@@ -1116,11 +1116,43 @@ function renderEvals() {
   });
 }
 
+function onSensorInput(i) {
+  const e = G.evals[i];
+  const v1 = document.getElementById(`s1inp-${i}`);
+  const v2 = document.getElementById(`s2inp-${i}`);
+  const scoreInp = document.getElementById(`score-inp-${i}`);
+  const compEl = document.getElementById(`computed-${i}`);
+  const s1 = G.sensors[e.s1], s2 = G.sensors[e.s2];
+  // persist sensor values into state
+  if (v1 && v1.value !== '') { s1.output = parseInt(v1.value); }
+  if (v2 && v2.value !== '') { s2.output = parseInt(v2.value); }
+  // auto-compute score
+  if (s1.output !== null && s2.output !== null) {
+    const calc = (s1.output * s1.weight) + (s2.output * s2.weight);
+    if (compEl) { compEl.textContent = calc; compEl.classList.add('has'); }
+    if (scoreInp && scoreInp.value === '') scoreInp.value = calc;
+  }
+  // unlock report button
+  const btn = document.getElementById(`rbtn-${i}`);
+  if (btn) btn.disabled = !(scoreInp && scoreInp.value !== '');
+  checkAllRolled();
+}
+
+function onScoreInput(i) {
+  const inp = document.getElementById(`score-inp-${i}`);
+  const btn = document.getElementById(`rbtn-${i}`);
+  if (btn) btn.disabled = !inp || inp.value === '';
+}
+
 function reportEval(i) {
   if (G.phase !== 'reporting') return;
-  const e = G.evals[i], s1 = G.sensors[e.s1], s2 = G.sensors[e.s2];
-  if (s1.output === null || s2.output === null) return;
-  e.score = (s1.output * s1.weight) + (s2.output * s2.weight);
+  const e = G.evals[i];
+  const inp = document.getElementById(`score-inp-${i}`);
+  const s1 = G.sensors[e.s1], s2 = G.sensors[e.s2];
+  const computed = (s1.output !== null && s2.output !== null)
+    ? (s1.output * s1.weight) + (s2.output * s2.weight) : 0;
+  const entered = inp ? parseFloat(inp.value) : NaN;
+  e.score = !isNaN(entered) ? entered : computed;
   e.reported = true;
   e.effect = e.score > 0 ? 'helped' : 'neutral';
   renderEvals(); renderConvScores(); updateProgress(); checkAllReported();
@@ -1229,24 +1261,25 @@ function setPhase(cls, txt) {
 }
 function setInfo(t) { document.getElementById('ab-info').textContent = t; }
 
-function resetClass(silent = false) {
-  if (!silent && !confirm('Reset the entire class? This will clear all scores and return to setup.')) return;
-  Object.assign(G, { total:17, sc:9, ec:8, threshold:5, round:0, target:null,
-    sensors:[], evals:[], correct:0, wrong:0, history:[], phase:'idle' });
-  _tot = 17; _thr = 5;
-  ['sv-total','s-total'].forEach(id => document.getElementById(id).textContent = 17);
-  ['sv-thresh','s-thresh'].forEach(id => document.getElementById(id).textContent = 5);
-  document.getElementById('s-a').textContent = 9;
-  document.getElementById('s-b').textContent = 8;
+function resetClass() {
+  if (!confirm('Reset the class? This will clear all history and restart from Round 1.')) return;
+  G.history = [];
+  G.correct = 0; G.wrong = 0;
+  G.round = 0;
+  document.getElementById('s-correct').textContent = '0';
+  document.getElementById('s-wrong').textContent = '0';
+  document.getElementById('s-acc').textContent = '—';
+  document.getElementById('history-list').innerHTML = '';
+  newRound();
+}
+
+function goToSetup() {
   document.getElementById('app-screen').classList.add('hidden');
   document.getElementById('setup-screen').classList.remove('hidden');
 }
 
 function updateProgress() {
-  const rolled = G.sensors.filter(s => s.output !== null).length;
   const reported = G.evals.filter(e => e.reported).length;
-  document.getElementById('roll-txt').textContent = `${rolled} / ${G.sc} rolled`;
-  document.getElementById('roll-bar').style.width = (rolled/G.sc*100) + '%';
   document.getElementById('report-txt').textContent = `${reported} / ${G.ec} reported`;
   document.getElementById('report-bar').style.width = (reported/G.ec*100) + '%';
 }

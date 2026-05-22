@@ -3,848 +3,426 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>CNN Classroom Simulator</title>
+<title>Human Neural Network — Classroom Simulator</title>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,700;0,9..144,900;1,9..144,300&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
-/* ─────────────────────────────────────────
-   TOKENS
-───────────────────────────────────────── */
 :root {
-  --bg:        #F7F4EE;
-  --bg2:       #EEE9DF;
-  --bg3:       #E6DFCF;
-  --surface:   #FFFFFF;
-  --border:    #D8D0C0;
-  --border2:   #C5BAA5;
-  --text:      #1C1A16;
-  --muted:     #7A7060;
-  --muted2:    #A89F8C;
+  --bg:#F7F4EE; --bg2:#EEE9DF; --bg3:#E6DFCF;
+  --surface:#FFFFFF; --border:#D8D0C0; --border2:#C5BAA5;
+  --text:#1C1A16; --muted:#7A7060; --muted2:#A89F8C;
+  --blue:#1B5EFF; --blue-soft:#EAF0FF; --blue-mid:#C0D1FF;
+  --green:#0D8A4E; --green-soft:#E3F5EC; --green-mid:#A3D9BC;
+  --red:#D93025; --red-soft:#FDECEA; --red-mid:#F4B0AB;
+  --amber:#B45309; --amber-soft:#FEF3C7;
+  --purple:#6D28D9; --purple-soft:#EDE9FE; --purple-mid:#C4B5FD;
+  --r:12px; --r-sm:7px;
+  --sh-sm:0 1px 3px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.05);
+  --sh:0 4px 12px rgba(0,0,0,.10),0 1px 3px rgba(0,0,0,.06);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{height:100%}
+body{font-family:'Fraunces',Georgia,serif;background:var(--bg);color:var(--text);min-height:100%;overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
+  background-image:radial-gradient(circle,var(--border) 1px,transparent 1px);
+  background-size:28px 28px;opacity:.5}
 
-  --blue:      #1B5EFF;
-  --blue-soft: #EAF0FF;
-  --blue-mid:  #C0D1FF;
+/* ── SETUP ── */
+#setup{position:fixed;inset:0;z-index:500;background:var(--bg);
+  display:flex;flex-direction:column;align-items:center;justify-content:flex-start;
+  padding:32px 20px 80px;gap:20px;overflow-y:auto}
+.su-badge{background:var(--blue-soft);border:1.5px solid var(--blue-mid);color:var(--blue);
+  border-radius:999px;padding:5px 16px;font-family:'DM Mono',monospace;font-size:11px;letter-spacing:.1em;text-transform:uppercase}
+.su-hero{text-align:center}
+.su-hero h1{font-size:clamp(30px,5vw,54px);font-weight:900;line-height:.95;letter-spacing:-.03em}
+.su-hero h1 em{font-style:italic;font-weight:300;color:var(--blue)}
+.su-hero p{margin-top:10px;font-family:'DM Mono',monospace;font-size:12px;color:var(--muted);letter-spacing:.04em}
 
-  --green:     #0D8A4E;
-  --green-soft:#E3F5EC;
-  --green-mid: #A3D9BC;
+.su-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;width:100%;max-width:760px}
+.su-card{background:var(--surface);border:1.5px solid var(--border);border-radius:var(--r);padding:16px 18px;box-shadow:var(--sh-sm)}
+.su-tag{font-family:'DM Mono',monospace;font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted2);margin-bottom:6px}
+.su-val{font-size:34px;font-weight:900;line-height:1;color:var(--text);letter-spacing:-.03em}
+.su-sub{font-family:'DM Mono',monospace;font-size:10px;color:var(--muted2);margin-top:4px}
+.stepper{display:flex;align-items:center;gap:10px;margin-top:12px}
+.step-btn{width:30px;height:30px;border-radius:8px;border:1.5px solid var(--border2);background:var(--bg2);
+  color:var(--text);font-size:16px;font-family:'DM Mono',monospace;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;transition:background .15s}
+.step-btn:hover{background:var(--bg3)}
+.step-num{font-family:'DM Mono',monospace;font-size:18px;font-weight:500;color:var(--amber);min-width:32px;text-align:center}
 
-  --red:       #D93025;
-  --red-soft:  #FDECEA;
-  --red-mid:   #F4B0AB;
+.su-flow{width:100%;max-width:760px;background:var(--surface);border:1.5px solid var(--border);
+  border-radius:var(--r);padding:18px 22px;box-shadow:var(--sh-sm)}
+.sf-title{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:12px}
+.sf-row{display:flex;align-items:flex-start;gap:12px;padding:8px 0;border-bottom:1px solid var(--bg2);font-size:13px;line-height:1.5}
+.sf-row:last-child{border-bottom:none}
+.sf-num{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  font-family:'DM Mono',monospace;font-size:10px;font-weight:500;flex-shrink:0;margin-top:1px}
+.sf-num.a{background:var(--blue-soft);color:var(--blue)}
+.sf-num.b{background:var(--purple-soft);color:var(--purple)}
+.sf-num.c{background:var(--green-soft);color:var(--green)}
+.sf-num.d{background:var(--amber-soft);color:var(--amber)}
+.sf-label{color:var(--muted);flex:1}
+.sf-label strong{color:var(--text)}
+.btn-start{background:var(--blue);color:#fff;border:none;border-radius:var(--r);padding:15px 48px;
+  font-family:'Fraunces',serif;font-size:17px;font-weight:700;letter-spacing:-.01em;cursor:pointer;
+  box-shadow:0 4px 20px rgba(27,94,255,.35);transition:opacity .2s,transform .15s,box-shadow .2s}
+.btn-start:hover{opacity:.92;transform:translateY(-2px);box-shadow:0 8px 28px rgba(27,94,255,.4)}
 
-  --amber:     #B45309;
-  --amber-soft:#FEF3C7;
+/* ── APP ── */
+#app{position:relative;z-index:1;display:flex;flex-direction:column;height:100vh;overflow:hidden}
 
-  --purple:    #6D28D9;
-  --purple-soft:#EDE9FE;
-  --purple-mid: #C4B5FD;
+/* TOPBAR */
+.topbar{flex-shrink:0;background:var(--surface);border-bottom:1.5px solid var(--border);
+  box-shadow:var(--sh-sm);height:58px;display:flex;align-items:center;padding:0 18px;gap:14px;position:relative;z-index:10}
+.tb-brand{font-size:15px;font-weight:900;letter-spacing:-.03em;white-space:nowrap}
+.tb-brand em{font-style:italic;font-weight:300;color:var(--blue)}
+.tb-div{width:1px;height:28px;background:var(--border);flex-shrink:0}
+.phase-chip{display:flex;align-items:center;gap:7px;background:var(--bg2);border:1.5px solid var(--border);
+  border-radius:999px;padding:4px 12px;font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);
+  transition:all .3s;white-space:nowrap}
+.phase-dot{width:7px;height:7px;border-radius:50%;background:var(--muted2);transition:all .3s}
+.phase-chip.roll{border-color:var(--blue-mid);color:var(--blue);background:var(--blue-soft)}
+.phase-chip.roll .phase-dot{background:var(--blue);box-shadow:0 0 0 2px var(--blue-mid)}
+.phase-chip.eval{border-color:var(--green-mid);color:var(--green);background:var(--green-soft)}
+.phase-chip.eval .phase-dot{background:var(--green);box-shadow:0 0 0 2px var(--green-mid)}
+.phase-chip.done.ok{border-color:var(--green-mid);color:var(--green);background:var(--green-soft)}
+.phase-chip.done.ok .phase-dot{background:var(--green)}
+.phase-chip.done.bad{border-color:var(--red-mid);color:var(--red);background:var(--red-soft)}
+.phase-chip.done.bad .phase-dot{background:var(--red)}
+.tb-right{margin-left:auto;display:flex;align-items:center;gap:12px}
+.target-chip{display:flex;align-items:center;gap:9px;background:var(--bg2);border:1.5px solid var(--border);
+  border-radius:999px;padding:5px 14px;font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);white-space:nowrap}
+.target-bulb{width:20px;height:20px;border-radius:50%;background:var(--muted2);border:2px solid var(--border2);transition:all .4s}
+.target-bulb.green{background:var(--green);border-color:var(--green-mid);box-shadow:0 0 0 3px var(--green-soft),0 0 10px rgba(13,138,78,.3)}
+.target-bulb.red{background:var(--red);border-color:var(--red-mid);box-shadow:0 0 0 3px var(--red-soft),0 0 10px rgba(217,48,37,.3)}
+.target-name{font-weight:500;color:var(--text)}
+.stats-row{display:flex;gap:14px;font-family:'DM Mono',monospace;font-size:11px;color:var(--muted)}
+.stat{display:flex;align-items:center;gap:4px}
+.sv{font-weight:500}
+.sv.g{color:var(--green)} .sv.r{color:var(--red)}
+.rnd-badge{background:var(--bg2);border:1.5px solid var(--border);border-radius:999px;padding:4px 12px;
+  font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);white-space:nowrap}
+.rnd-badge span{color:var(--text);font-weight:500}
 
-  --radius:    12px;
-  --radius-sm: 7px;
-  --shadow-sm: 0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.05);
-  --shadow:    0 4px 12px rgba(0,0,0,.10), 0 1px 3px rgba(0,0,0,.06);
-  --shadow-lg: 0 12px 32px rgba(0,0,0,.12), 0 2px 8px rgba(0,0,0,.06);
-}
+/* ── COLUMNS ── */
+.columns{flex:1;display:grid;grid-template-columns:1fr 1fr 1fr 240px;gap:1px;background:var(--border);min-height:0}
+.col{display:flex;flex-direction:column;background:var(--bg);min-height:0;overflow:hidden}
+.col.out-col{background:var(--bg2)}
+.col-head{flex-shrink:0;padding:14px 16px 10px;background:var(--surface);border-bottom:1.5px solid var(--border)}
+.col.out-col .col-head{background:var(--bg2)}
+.col-tag{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:3px 10px;
+  font-family:'DM Mono',monospace;font-size:9px;letter-spacing:.12em;text-transform:uppercase;margin-bottom:6px}
+.col-tag.a{background:var(--blue-soft);color:var(--blue);border:1px solid var(--blue-mid)}
+.col-tag.b{background:var(--purple-soft);color:var(--purple);border:1px solid var(--purple-mid)}
+.col-tag.c{background:var(--green-soft);color:var(--green);border:1px solid var(--green-mid)}
+.col-tag.out{background:var(--green-soft);color:var(--green);border:1px solid var(--green-mid)}
+.col-title{font-size:15px;font-weight:900;letter-spacing:-.02em;color:var(--text)}
+.col-sub{font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);line-height:1.6;margin-top:4px}
+.col-sub b{color:var(--text)}
+.prog-wrap{display:flex;align-items:center;gap:8px;margin-top:8px}
+.prog-bar{flex:1;height:4px;background:var(--bg3);border-radius:999px;overflow:hidden}
+.prog-fill{height:100%;border-radius:999px;width:0%;transition:width .3s}
+.prog-fill.blue{background:var(--blue)} .prog-fill.purple{background:var(--purple)} .prog-fill.green{background:var(--green)}
+.prog-txt{font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);white-space:nowrap}
+.col-body{flex:1;overflow-y:auto;padding:12px;scrollbar-width:thin;scrollbar-color:var(--border2) transparent}
+.col-body::-webkit-scrollbar{width:4px}
+.col-body::-webkit-scrollbar-thumb{background:var(--border2);border-radius:999px}
 
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+/* ── LAYER A NODE CARDS ── */
+.node-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:7px}
+.a-card{background:var(--surface);border:1.5px solid var(--border);border-radius:10px;
+  padding:10px 8px;display:flex;flex-direction:column;align-items:center;gap:4px;
+  position:relative;overflow:hidden;box-shadow:var(--sh-sm);transition:all .25s;animation:fadeUp .25s ease both}
+.a-card::after{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--border);border-radius:3px 3px 0 0;transition:background .25s}
+.a-card.fired{border-color:var(--blue-mid);box-shadow:0 0 0 3px var(--blue-soft),var(--sh-sm)}
+.a-card.fired::after{background:var(--blue)}
+.a-card.silent{border-color:var(--border2)}
+.a-card.silent::after{background:var(--muted2)}
+.a-name{font-family:'DM Mono',monospace;font-size:9px;color:var(--muted2);letter-spacing:.05em}
+.a-out{font-size:28px;font-weight:900;color:var(--muted2);line-height:1;min-height:34px;
+  display:flex;align-items:center;justify-content:center;letter-spacing:-.04em;transition:color .2s}
+.a-card.fired .a-out{color:var(--blue)}
+.a-card.silent .a-out{color:var(--muted2)}
+.a-inp{width:52px;padding:4px 6px;border:1.5px solid var(--border2);border-radius:7px;background:var(--surface);
+  color:var(--text);font-family:'DM Mono',monospace;font-size:16px;font-weight:700;text-align:center;outline:none;
+  transition:border-color .15s,box-shadow .15s;margin-top:2px}
+.a-inp:focus{border-color:var(--blue-mid);box-shadow:0 0 0 3px var(--blue-soft)}
+.a-inp::placeholder{color:var(--muted2);font-size:11px}
 
-html { height: 100%; }
+/* ── LAYER B CARDS ── */
+.b-list{display:flex;flex-direction:column;gap:8px}
+.b-card{background:var(--surface);border:1.5px solid var(--border);border-radius:10px;
+  padding:12px;box-shadow:var(--sh-sm);position:relative;overflow:hidden;animation:fadeUp .25s ease both}
+.b-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--border);transition:background .25s}
+.b-card.has-input{border-color:var(--purple-mid);box-shadow:0 0 0 2px var(--purple-soft),var(--sh-sm)}
+.b-card.has-input::before{background:var(--purple)}
+.b-head{display:flex;align-items:center;gap:7px;margin-bottom:8px}
+.b-id{font-size:14px;font-weight:900;letter-spacing:-.02em}
+.b-student{font-family:'DM Mono',monospace;font-size:10px;color:var(--muted)}
+.b-conn-badge{margin-left:auto;background:var(--blue-soft);border:1px solid var(--blue-mid);color:var(--blue);
+  border-radius:999px;font-family:'DM Mono',monospace;font-size:9px;padding:2px 8px}
+.b-inputs-row{display:flex;align-items:center;gap:6px;margin-bottom:8px;flex-wrap:wrap}
+.b-inp-cell{display:flex;flex-direction:column;align-items:center;gap:2px}
+.b-inp-lbl{font-family:'DM Mono',monospace;font-size:8px;color:var(--muted2)}
+.b-inp{width:40px;padding:3px 4px;border:1.5px solid var(--border2);border-radius:6px;background:var(--bg2);
+  color:var(--text);font-family:'DM Mono',monospace;font-size:13px;font-weight:700;text-align:center;outline:none;transition:all .15s}
+.b-inp:focus{border-color:var(--purple-mid);box-shadow:0 0 0 2px var(--purple-soft);background:var(--surface)}
+.b-arrow{color:var(--muted2);font-size:12px}
+.b-out-row{display:flex;align-items:center;gap:8px}
+.b-out-lbl{font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);flex:1}
+.b-dice-inp{width:48px;padding:4px 6px;border:1.5px solid var(--border2);border-radius:7px;
+  background:var(--surface);color:var(--text);font-family:'DM Mono',monospace;
+  font-size:14px;font-weight:700;text-align:center;outline:none;transition:all .15s}
+.b-dice-inp:focus{border-color:var(--purple-mid);box-shadow:0 0 0 2px var(--purple-soft)}
+.b-dice-inp::placeholder{color:var(--muted2);font-size:11px}
+.b-out-val{font-size:20px;font-weight:900;color:var(--muted2);letter-spacing:-.03em;min-width:28px;text-align:center}
+.b-out-val.has{color:var(--purple)}
 
-body {
-  font-family: 'Fraunces', Georgia, serif;
-  background: var(--bg);
-  color: var(--text);
-  min-height: 100%;
-  overflow-x: hidden;
-}
+/* ── LAYER C CARDS ── */
+.c-list{display:flex;flex-direction:column;gap:8px}
+.c-card{background:var(--surface);border:1.5px solid var(--border);border-radius:10px;
+  padding:12px;box-shadow:var(--sh-sm);position:relative;overflow:hidden;animation:fadeUp .25s ease both}
+.c-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--border);transition:background .25s}
+.c-card.reported{border-color:var(--green-mid);box-shadow:0 0 0 2px var(--green-soft),var(--sh-sm)}
+.c-card.reported::before{background:var(--green)}
+.c-head{display:flex;align-items:center;gap:7px;margin-bottom:8px}
+.c-id{font-size:14px;font-weight:900;letter-spacing:-.02em}
+.c-student{font-family:'DM Mono',monospace;font-size:10px;color:var(--muted)}
+.c-conn-badge{margin-left:auto;background:var(--purple-soft);border:1px solid var(--purple-mid);color:var(--purple);
+  border-radius:999px;font-family:'DM Mono',monospace;font-size:9px;padding:2px 8px}
+.c-inputs-row{display:flex;align-items:center;gap:6px;margin-bottom:8px;flex-wrap:wrap}
+.sel-rg{padding:4px 7px;border:1.5px solid var(--border2);border-radius:7px;background:var(--bg2);
+  font-family:'DM Mono',monospace;font-size:12px;color:var(--text);outline:none;cursor:pointer;transition:all .15s}
+.sel-rg:focus{border-color:var(--green-mid);box-shadow:0 0 0 2px var(--green-soft)}
+.c-formula{display:flex;align-items:center;gap:6px;margin-bottom:10px;
+  font-family:'DM Mono',monospace;font-size:11px;color:var(--muted)}
+.c-num{font-size:17px;font-weight:700;color:var(--muted2);transition:color .2s;min-width:20px;text-align:center}
+.c-num.has{color:var(--green)}
+.c-weight-inp{width:44px;padding:3px 5px;border:1.5px solid var(--border2);border-radius:6px;
+  background:var(--amber-soft);color:var(--amber);font-family:'DM Mono',monospace;
+  font-size:13px;font-weight:700;text-align:center;outline:none;border-color:#FBBF24;transition:all .15s}
+.c-weight-inp:focus{box-shadow:0 0 0 2px var(--amber-soft)}
+.c-value{font-size:20px;font-weight:900;color:var(--muted2);letter-spacing:-.03em;min-width:36px;text-align:center}
+.c-value.has{color:var(--green)}
+.report-btn{background:var(--green);color:#fff;border:none;border-radius:8px;padding:8px 12px;width:100%;
+  font-family:'Fraunces',serif;font-size:12px;font-weight:700;cursor:pointer;
+  box-shadow:0 2px 8px rgba(13,138,78,.25);transition:opacity .15s,transform .1s}
+.report-btn:hover{opacity:.88} .report-btn:active{transform:scale(.97)}
+.report-btn:disabled{opacity:.3;cursor:not-allowed;box-shadow:none;background:var(--muted2)}
+.report-tag{display:flex;align-items:center;justify-content:center;gap:6px;padding:7px;border-radius:7px;
+  font-family:'DM Mono',monospace;font-size:10px;font-weight:500;width:100%}
+.report-tag.helped{background:var(--green-soft);color:var(--green);border:1px solid var(--green-mid)}
+.report-tag.hurt{background:var(--red-soft);color:var(--red);border:1px solid var(--red-mid)}
+.report-tag.neutral{background:var(--amber-soft);color:var(--amber);border:1px solid #FBBF24}
+.wadj-row{display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-top:9px;
+  padding-top:9px;border-top:1.5px solid var(--bg3)}
+.wadj-lbl{font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);flex:1;min-width:100%;margin-bottom:4px}
+.wadj-btn{width:24px;height:24px;border-radius:6px;border:1.5px solid var(--border2);
+  background:var(--bg2);color:var(--text);font-size:14px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;transition:all .15s;line-height:1}
+.wadj-btn.plus:hover{background:var(--green-soft);border-color:var(--green-mid);color:var(--green)}
+.wadj-btn.minus:hover{background:var(--red-soft);border-color:var(--red-mid);color:var(--red)}
+.wadj-v{font-family:'DM Mono',monospace;font-size:13px;font-weight:500;color:var(--amber);min-width:30px;text-align:center}
 
-/* subtle dot grid */
-body::before {
-  content: '';
-  position: fixed; inset: 0; z-index: 0; pointer-events: none;
-  background-image: radial-gradient(circle, var(--border) 1px, transparent 1px);
-  background-size: 28px 28px;
-  opacity: .5;
-}
+/* ── OUTPUT PANEL ── */
+.out-lbl{font-family:'DM Mono',monospace;font-size:9px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--muted2);margin-bottom:8px;display:flex;align-items:center;gap:8px}
+.out-lbl::after{content:'';flex:1;height:1px;background:var(--border)}
+.out-section{margin-bottom:16px}
+.csr{display:flex;align-items:center;gap:8px;background:var(--surface);border:1.5px solid var(--border);
+  border-radius:8px;padding:7px 10px;margin-bottom:4px;font-family:'DM Mono',monospace;font-size:11px;transition:all .2s}
+.csr.active{border-color:var(--green-mid);box-shadow:0 0 0 2px var(--green-soft)}
+.csr-id{color:var(--green);font-weight:500;min-width:22px}
+.csr-pair{color:var(--muted);font-size:9px;flex:1}
+.csr-v{font-weight:500;color:var(--muted2);margin-left:auto}
+.csr-v.has{color:var(--amber)}
+.total-wrap{display:flex;align-items:baseline;gap:6px;margin-bottom:8px}
+.total-num{font-size:44px;font-weight:900;line-height:1;letter-spacing:-.04em;color:var(--muted2);transition:color .4s}
+.total-num.has{color:var(--text)}
+.total-unit{font-family:'DM Mono',monospace;font-size:11px;color:var(--muted)}
+.thresh-rule{font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);line-height:1.8;margin-bottom:14px}
+.thresh-rule span{color:var(--amber);font-weight:500}
+.orb-wrap{display:flex;justify-content:center;margin-bottom:12px}
+.output-orb{width:70px;height:70px;border-radius:50%;border:3px solid var(--border2);
+  display:flex;align-items:center;justify-content:center;font-size:28px;background:var(--surface);
+  box-shadow:var(--sh-sm);transition:all .45s}
+.output-orb.green{border-color:var(--green-mid);box-shadow:0 0 0 6px var(--green-soft),var(--sh)}
+.output-orb.red{border-color:var(--red-mid);box-shadow:0 0 0 6px var(--red-soft),var(--sh)}
+.verdict-box{background:var(--surface);border:1.5px solid var(--border);border-radius:9px;
+  padding:10px 12px;font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);
+  text-align:center;transition:all .3s;line-height:1.5}
+.verdict-box.correct{background:var(--green-soft);border-color:var(--green-mid);color:var(--green)}
+.verdict-box.wrong{background:var(--red-soft);border-color:var(--red-mid);color:var(--red)}
+.hist-row{display:flex;align-items:center;gap:6px;background:var(--surface);border:1.5px solid var(--border);
+  border-radius:7px;padding:7px 10px;margin-bottom:4px;font-family:'DM Mono',monospace;font-size:10px}
+.hr-r{color:var(--muted);min-width:24px} .hr-t{min-width:40px} .hr-g{min-width:40px}
+.hr-s{color:var(--muted);font-size:9px;flex:1}
+.hr-res{font-weight:500} .hr-res.c{color:var(--green)} .hr-res.w{color:var(--red)}
 
-/* ─────────────────────────────────────────
-   SETUP SCREEN
-───────────────────────────────────────── */
-#setup-screen {
-  position: fixed; inset: 0; z-index: 500;
-  background: var(--bg);
-  display: flex; flex-direction: column;
-  align-items: center; justify-content: center;
-  padding: 32px 20px;
-  gap: 28px;
-  overflow-y: auto;
-}
+/* ── ACTION BAR ── */
+.action-bar{flex-shrink:0;background:var(--surface);border-top:1.5px solid var(--border);
+  height:62px;display:flex;align-items:center;padding:0 16px;gap:9px;box-shadow:0 -2px 8px rgba(0,0,0,.06)}
+.ab-info{flex:1;font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.btn{border:none;border-radius:9px;font-family:'Fraunces',serif;font-size:13px;font-weight:700;
+  padding:9px 16px;cursor:pointer;white-space:nowrap;transition:opacity .15s,transform .1s;letter-spacing:-.01em}
+.btn:hover{opacity:.88} .btn:active{transform:scale(.97)} .btn:disabled{opacity:.3;cursor:not-allowed}
+.btn-ghost{background:var(--bg2);color:var(--text);border:1.5px solid var(--border2)}
+.btn-green{background:var(--green);color:#fff;box-shadow:0 2px 8px rgba(13,138,78,.25)}
+.btn-red{background:var(--red-soft);color:var(--red);border:1.5px solid var(--red-mid)}
+.btn-reset{background:var(--bg3);color:var(--muted);border:1.5px solid var(--border2)}
+.btn-reset:hover{background:var(--red-soft)!important;color:var(--red)!important;border-color:var(--red-mid)!important;opacity:1!important}
+.back-link{display:inline-flex;align-items:center;gap:6px;text-decoration:none;cursor:pointer;
+  background:var(--bg2);border:1.5px solid var(--border2);border-radius:999px;padding:4px 12px 4px 8px;
+  font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);transition:all .18s;flex-shrink:0}
+.back-link:hover{background:var(--bg3);color:var(--text)}
 
-.setup-badge {
-  background: var(--blue-soft);
-  border: 1.5px solid var(--blue-mid);
-  color: var(--blue);
-  border-radius: 999px;
-  padding: 5px 16px;
-  font-family: 'DM Mono', monospace;
-  font-size: 11px; letter-spacing: .1em; text-transform: uppercase;
-}
+/* dice hint chip */
+.dice-hint{font-family:'DM Mono',monospace;font-size:10px;background:var(--amber-soft);
+  border:1px solid #FBBF24;border-radius:6px;padding:4px 8px;color:var(--amber);line-height:1.5;margin-top:6px}
 
-.setup-hero { text-align: center; }
-.setup-hero h1 {
-  font-size: clamp(36px, 6vw, 64px);
-  font-weight: 900; line-height: .95;
-  letter-spacing: -.03em;
-  color: var(--text);
-}
-.setup-hero h1 em {
-  font-style: italic; font-weight: 300;
-  color: var(--blue);
-}
-.setup-hero p {
-  margin-top: 10px;
-  font-family: 'DM Mono', monospace;
-  font-size: 12px; color: var(--muted);
-  letter-spacing: .04em;
-}
+/* ── TRAFFIC LIGHT ── */
+.tl-controls{display:flex;align-items:center;gap:12px;margin-top:10px;padding:10px 12px;
+  background:var(--surface);border:1.5px solid var(--border);border-radius:10px;box-shadow:var(--sh-sm)}
+.tl-lights{display:flex;align-items:center;gap:10px}
+.tl-housing{background:#2a2a2a;border-radius:12px;padding:8px 10px;
+  display:flex;flex-direction:column;gap:7px;box-shadow:0 3px 10px rgba(0,0,0,.25)}
+.tl-bulb{width:26px;height:26px;border-radius:50%;cursor:pointer;
+  transition:all .2s;border:2px solid rgba(255,255,255,.1)}
+.tl-red{background:#5a1a1a}
+.tl-red.active{background:var(--red);box-shadow:0 0 12px var(--red),0 0 24px rgba(217,48,37,.5)}
+.tl-green{background:#1a3a1a}
+.tl-green.active{background:var(--green);box-shadow:0 0 12px var(--green),0 0 24px rgba(13,138,78,.5)}
+.tl-label{font-family:'DM Mono',monospace;font-size:11px;font-weight:500;color:var(--muted);
+  min-width:60px;line-height:1.4}
+.tl-label.red{color:var(--red)}
+.tl-label.green{color:var(--green)}
+.run-btn{margin-left:auto;background:var(--blue);color:#fff;border:none;border-radius:8px;
+  padding:8px 16px;font-family:'Fraunces',serif;font-size:13px;font-weight:700;
+  cursor:pointer;box-shadow:0 2px 8px rgba(27,94,255,.3);transition:opacity .15s,transform .1s}
+.run-btn:hover{opacity:.88} .run-btn:active{transform:scale(.97)}
+.run-btn:disabled{opacity:.3;cursor:not-allowed;box-shadow:none;background:var(--muted2)}
 
-.setup-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 14px;
-  width: 100%; max-width: 680px;
-}
+/* A node colour states */
+.a-card.colour-green{border-color:var(--green-mid);background:var(--green-soft)}
+.a-card.colour-green::after{background:var(--green)}
+.a-card.colour-green .a-colour-badge{background:var(--green);color:#fff}
+.a-card.colour-red{border-color:var(--red-mid);background:var(--red-soft)}
+.a-card.colour-red::after{background:var(--red)}
+.a-card.colour-red .a-colour-badge{background:var(--red);color:#fff}
+.a-colour-badge{display:inline-block;font-family:'DM Mono',monospace;font-size:9px;font-weight:700;
+  padding:3px 8px;border-radius:999px;background:var(--border);color:var(--muted);
+  letter-spacing:.06em;text-transform:uppercase;transition:all .3s}
+.a-colour-word{font-size:13px;font-weight:900;letter-spacing:-.02em;
+  transition:color .3s;line-height:1;margin-top:2px}
+.a-colour-word.green{color:var(--green)} .a-colour-word.red{color:var(--red)} .a-colour-word.pending{color:var(--muted2)}
 
-.setup-card {
-  background: var(--surface);
-  border: 1.5px solid var(--border);
-  border-radius: var(--radius);
-  padding: 18px 20px;
-  box-shadow: var(--shadow-sm);
-}
-.sc-tag {
-  font-family: 'DM Mono', monospace;
-  font-size: 9px; letter-spacing: .14em; text-transform: uppercase;
-  color: var(--muted2); margin-bottom: 6px;
-}
-.sc-val {
-  font-size: 38px; font-weight: 900; line-height: 1;
-  color: var(--text); letter-spacing: -.03em;
-}
-.sc-sub {
-  font-family: 'DM Mono', monospace;
-  font-size: 10px; color: var(--muted2); margin-top: 4px;
-}
-.stepper {
-  display: flex; align-items: center; gap: 10px; margin-top: 12px;
-}
-.step-btn {
-  width: 30px; height: 30px; border-radius: 8px;
-  border: 1.5px solid var(--border2);
-  background: var(--bg2); color: var(--text);
-  font-size: 16px; font-family: 'DM Mono', monospace;
-  cursor: pointer; display: flex; align-items: center; justify-content: center;
-  transition: background .15s, border-color .15s;
-}
-.step-btn:hover { background: var(--bg3); border-color: var(--border2); }
-.step-num {
-  font-family: 'DM Mono', monospace;
-  font-size: 18px; font-weight: 500;
-  color: var(--amber); min-width: 32px; text-align: center;
-}
-
-.setup-flow {
-  width: 100%; max-width: 680px;
-  background: var(--surface);
-  border: 1.5px solid var(--border);
-  border-radius: var(--radius);
-  padding: 18px 22px;
-  box-shadow: var(--shadow-sm);
-}
-.sf-title {
-  font-family: 'DM Mono', monospace;
-  font-size: 10px; letter-spacing: .12em; text-transform: uppercase;
-  color: var(--muted); margin-bottom: 12px;
-}
-.sf-row {
-  display: flex; align-items: flex-start; gap: 12px;
-  padding: 8px 0;
-  border-bottom: 1px solid var(--bg2);
-  font-size: 13px; line-height: 1.5;
-}
-.sf-row:last-child { border-bottom: none; }
-.sf-num {
-  width: 22px; height: 22px; border-radius: 50%;
-  display: flex; align-items: center; justify-content: center;
-  font-family: 'DM Mono', monospace; font-size: 10px; font-weight: 500;
-  flex-shrink: 0; margin-top: 1px;
-}
-.sf-num.a { background: var(--blue-soft); color: var(--blue); }
-.sf-num.b { background: var(--purple-soft); color: var(--purple); }
-.sf-num.c { background: var(--green-soft); color: var(--green); }
-.sf-num.d { background: var(--amber-soft); color: var(--amber); }
-.sf-label { color: var(--muted); flex: 1; }
-.sf-label strong { color: var(--text); }
-
-.btn-start {
-  background: var(--blue);
-  color: #fff;
-  border: none; border-radius: var(--radius);
-  padding: 15px 48px;
-  font-family: 'Fraunces', serif;
-  font-size: 17px; font-weight: 700; letter-spacing: -.01em;
-  cursor: pointer;
-  box-shadow: 0 4px 20px rgba(27,94,255,.35);
-  transition: opacity .2s, transform .15s, box-shadow .2s;
-}
-.btn-start:hover {
-  opacity: .92; transform: translateY(-2px);
-  box-shadow: 0 8px 28px rgba(27,94,255,.4);
-}
-.btn-start:active { transform: translateY(0); }
-
-/* ─────────────────────────────────────────
-   APP SHELL
-───────────────────────────────────────── */
-#app-screen {
-  position: relative; z-index: 1;
-  display: flex; flex-direction: column;
-  height: 100vh;
-  overflow: hidden;
-}
-
-/* ─────────────────────────────────────────
-   TOPBAR
-───────────────────────────────────────── */
-.topbar {
-  flex-shrink: 0;
-  background: var(--surface);
-  border-bottom: 1.5px solid var(--border);
-  box-shadow: var(--shadow-sm);
-  height: 58px;
-  display: flex; align-items: center;
-  padding: 0 20px; gap: 16px;
-  position: relative; z-index: 10;
-}
-.tb-brand {
-  font-size: 16px; font-weight: 900; letter-spacing: -.03em;
-  white-space: nowrap;
-}
-.tb-brand em { font-style: italic; font-weight: 300; color: var(--blue); }
-
-.tb-divider { width: 1px; height: 28px; background: var(--border); flex-shrink: 0; }
-
-.phase-chip {
-  display: flex; align-items: center; gap: 7px;
-  background: var(--bg2);
-  border: 1.5px solid var(--border);
-  border-radius: 999px; padding: 4px 12px;
-  font-family: 'DM Mono', monospace; font-size: 11px;
-  color: var(--muted); transition: all .3s; white-space: nowrap;
-}
-.phase-dot {
-  width: 7px; height: 7px; border-radius: 50%;
-  background: var(--muted2); transition: background .3s, box-shadow .3s;
-}
-.phase-chip.roll { border-color: var(--blue-mid); color: var(--blue); background: var(--blue-soft); }
-.phase-chip.roll .phase-dot { background: var(--blue); box-shadow: 0 0 0 2px var(--blue-mid); }
-.phase-chip.conv { border-color: var(--purple-mid); color: var(--purple); background: var(--purple-soft); }
-.phase-chip.conv .phase-dot { background: var(--purple); box-shadow: 0 0 0 2px var(--purple-mid); }
-.phase-chip.done.correct { border-color: var(--green-mid); color: var(--green); background: var(--green-soft); }
-.phase-chip.done.correct .phase-dot { background: var(--green); box-shadow: 0 0 0 2px var(--green-mid); }
-.phase-chip.done.wrong { border-color: var(--red-mid); color: var(--red); background: var(--red-soft); }
-.phase-chip.done.wrong .phase-dot { background: var(--red); box-shadow: 0 0 0 2px var(--red-mid); }
-
-.tb-right { margin-left: auto; display: flex; align-items: center; gap: 12px; }
-
-.target-chip {
-  display: flex; align-items: center; gap: 9px;
-  background: var(--bg2); border: 1.5px solid var(--border);
-  border-radius: 999px; padding: 5px 14px;
-  font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted);
-  white-space: nowrap;
-}
-.target-bulb {
-  width: 18px; height: 18px; border-radius: 50%;
-  background: var(--muted2); border: 2px solid var(--border2);
-  transition: all .4s;
-}
-.target-bulb.green {
-  background: var(--green);
-  border-color: var(--green-mid);
-  box-shadow: 0 0 0 3px var(--green-soft), 0 0 10px rgba(13,138,78,.3);
-}
-.target-bulb.red {
-  background: var(--red);
-  border-color: var(--red-mid);
-  box-shadow: 0 0 0 3px var(--red-soft), 0 0 10px rgba(217,48,37,.3);
-}
-.target-name { font-weight: 500; color: var(--text); }
-
-.stats-row {
-  display: flex; gap: 14px;
-  font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted);
-}
-.stat { display: flex; align-items: center; gap: 4px; }
-.sv { font-weight: 500; }
-.sv.g { color: var(--green); }
-.sv.r { color: var(--red); }
-
-.rnd-badge {
-  background: var(--bg2); border: 1.5px solid var(--border);
-  border-radius: 999px; padding: 4px 12px;
-  font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted);
-  white-space: nowrap;
-}
-.rnd-badge span { color: var(--text); font-weight: 500; }
-
-/* ─────────────────────────────────────────
-   MAIN LAYOUT — three columns, full height
-───────────────────────────────────────── */
-.columns {
-  flex: 1;
-  display: grid;
-  grid-template-columns: 1fr 260px;
-  min-height: 0; /* critical for flex child scrolling */
-  border-bottom: 1.5px solid var(--border);
-}
-
-.col {
-  display: flex; flex-direction: column;
-  border-right: 1.5px solid var(--border);
-  min-height: 0;
-  overflow: hidden;
-}
-.col:last-child { border-right: none; }
-
-/* Column header — fixed, never scrolls */
-.col-head {
-  flex-shrink: 0;
-  padding: 16px 18px 12px;
-  background: var(--surface);
-  border-bottom: 1.5px solid var(--border);
-}
-.col-tag {
-  display: inline-flex; align-items: center; gap: 6px;
-  border-radius: 999px; padding: 3px 10px;
-  font-family: 'DM Mono', monospace;
-  font-size: 9px; letter-spacing: .12em; text-transform: uppercase;
-  margin-bottom: 6px;
-}
-.col-tag.a { background: var(--blue-soft); color: var(--blue); border: 1px solid var(--blue-mid); }
-.col-tag.b { background: var(--purple-soft); color: var(--purple); border: 1px solid var(--purple-mid); }
-.col-tag.out { background: var(--green-soft); color: var(--green); border: 1px solid var(--green-mid); }
-
-.col-title {
-  font-size: 17px; font-weight: 900; letter-spacing: -.02em;
-  color: var(--text);
-}
-.col-sub {
-  font-family: 'DM Mono', monospace;
-  font-size: 10px; color: var(--muted); line-height: 1.6;
-  margin-top: 4px;
-}
-.col-sub b { color: var(--text); }
-
-/* progress bar */
-.prog-wrap {
-  display: flex; align-items: center; gap: 8px; margin-top: 8px;
-}
-.prog-bar {
-  flex: 1; height: 4px; background: var(--bg3);
-  border-radius: 999px; overflow: hidden;
-}
-.prog-fill {
-  height: 100%; border-radius: 999px; width: 0%;
-  transition: width .3s ease;
-}
-.prog-fill.blue { background: var(--blue); }
-.prog-fill.purple { background: var(--purple); }
-.prog-txt {
-  font-family: 'DM Mono', monospace; font-size: 10px;
-  color: var(--muted); white-space: nowrap;
-}
-
-/* Column body — scrolls independently */
-.col-body {
-  flex: 1; overflow-y: auto; padding: 14px;
-  /* custom scrollbar */
-  scrollbar-width: thin; scrollbar-color: var(--border2) transparent;
-}
-.col-body::-webkit-scrollbar { width: 5px; }
-.col-body::-webkit-scrollbar-track { background: transparent; }
-.col-body::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 999px; }
-
-/* ─────────────────────────────────────────
-   SENSOR CARDS
-───────────────────────────────────────── */
-.sensors-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
-  gap: 8px;
-}
-
-.sensor-card {
-  background: var(--surface);
-  border: 1.5px solid var(--border);
-  border-radius: var(--radius);
-  padding: 12px 10px 10px;
-  display: flex; flex-direction: column; align-items: center; gap: 5px;
-  box-shadow: var(--shadow-sm);
-  position: relative; overflow: hidden;
-  transition: border-color .25s, box-shadow .25s, transform .15s;
-  animation: fadeUp .25s ease both;
-}
-.sensor-card::after {
-  content: '';
-  position: absolute; top: 0; left: 0; right: 0; height: 3px;
-  background: var(--border); border-radius: 3px 3px 0 0;
-  transition: background .25s;
-}
-.sensor-card:hover { transform: translateY(-1px); box-shadow: var(--shadow); }
-.sensor-card.fired { border-color: var(--green-mid); box-shadow: 0 0 0 3px var(--green-soft), var(--shadow-sm); }
-.sensor-card.fired::after { background: var(--green); }
-.sensor-card.silent { border-color: var(--red-mid); box-shadow: 0 0 0 3px var(--red-soft), var(--shadow-sm); }
-.sensor-card.silent::after { background: var(--red); }
-
-.sc-name {
-  font-family: 'DM Mono', monospace;
-  font-size: 9px; color: var(--muted2); letter-spacing: .06em;
-}
-.sc-student { font-size: 11px; font-weight: 700; color: var(--muted); text-align: center; }
-.sc-out {
-  font-size: 32px; font-weight: 900; color: var(--muted2);
-  line-height: 1; min-height: 38px;
-  display: flex; align-items: center; justify-content: center;
-  letter-spacing: -.04em; transition: color .2s;
-}
-.sensor-card.fired  .sc-out { color: var(--green); }
-.sensor-card.silent .sc-out { color: var(--red); }
-
-.sc-dice {
-  font-family: 'DM Mono', monospace; font-size: 9px; color: var(--muted2);
-}
-.sc-w {
-  background: var(--amber-soft); border: 1px solid #FBBF24;
-  color: var(--amber); border-radius: 999px;
-  font-family: 'DM Mono', monospace; font-size: 10px;
-  padding: 2px 8px;
-}
-.roll-btn {
-  background: var(--blue); color: #fff; border: none;
-  border-radius: 7px; padding: 5px 0; width: 100%;
-  font-family: 'Fraunces', serif; font-size: 11px; font-weight: 700;
-  cursor: pointer; letter-spacing: .01em;
-  transition: opacity .15s, transform .1s;
-  box-shadow: 0 2px 6px rgba(27,94,255,.25);
-}
-.roll-btn:hover { opacity: .88; }
-.roll-btn:active { transform: scale(.96); }
-.roll-btn:disabled {
-  opacity: .35; cursor: not-allowed;
-  background: var(--muted2); box-shadow: none;
-}
-.sensor-card.clickable { cursor: pointer; }
-.sensor-card.clickable:hover { transform: translateY(-2px); box-shadow: var(--shadow); border-color: var(--blue-mid); }
-
-/* ─────────────────────────────────────────
-   CONVOLUTION CARDS
-───────────────────────────────────────── */
-.conv-list { display: flex; flex-direction: column; gap: 10px; }
-
-.conv-card {
-  background: var(--surface);
-  border: 1.5px solid var(--border);
-  border-radius: var(--radius);
-  padding: 14px;
-  box-shadow: var(--shadow-sm);
-  position: relative; overflow: hidden;
-  animation: fadeUp .25s ease both;
-  transition: border-color .25s, box-shadow .25s;
-}
-.conv-card::before {
-  content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px;
-  background: var(--border); border-radius: 0 0 0 0;
-  transition: background .25s;
-}
-.conv-card.reported { border-color: var(--purple-mid); box-shadow: 0 0 0 3px var(--purple-soft), var(--shadow-sm); }
-.conv-card.reported::before { background: var(--purple); }
-.conv-card.helped { border-color: var(--green-mid); box-shadow: 0 0 0 3px var(--green-soft), var(--shadow-sm); }
-.conv-card.helped::before { background: var(--green); }
-.conv-card.hurt { border-color: var(--red-mid); box-shadow: 0 0 0 3px var(--red-soft), var(--shadow-sm); }
-.conv-card.hurt::before { background: var(--red); }
-
-.cc-head {
-  display: flex; align-items: center; gap: 8px; margin-bottom: 10px;
-}
-.cc-id { font-size: 15px; font-weight: 900; letter-spacing: -.02em; }
-.cc-student { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--muted); }
-.cc-pair-badge {
-  margin-left: auto;
-  background: var(--purple-soft); border: 1px solid var(--purple-mid);
-  color: var(--purple); border-radius: 999px;
-  font-family: 'DM Mono', monospace; font-size: 9px; padding: 2px 9px;
-}
-
-/* kernel cells */
-.cc-kernel {
-  display: flex; align-items: center; gap: 6px; margin-bottom: 10px;
-}
-.kc {
-  background: var(--bg2); border: 1.5px solid var(--border);
-  border-radius: 9px; padding: 7px 10px; text-align: center;
-  min-width: 54px; transition: all .2s;
-}
-.kc-lbl { font-family: 'DM Mono', monospace; font-size: 9px; color: var(--muted2); margin-bottom: 2px; }
-.kc-v { font-size: 16px; font-weight: 900; color: var(--muted2); transition: color .2s; letter-spacing: -.02em; }
-.kc-w { font-family: 'DM Mono', monospace; font-size: 9px; color: var(--muted2); }
-.kc.fired { background: var(--green-soft); border-color: var(--green-mid); }
-.kc.fired .kc-v { color: var(--green); }
-.kc.silent { background: var(--red-soft); border-color: var(--red-mid); }
-.kc.silent .kc-v { color: var(--red); }
-
-.cc-op { color: var(--muted2); font-size: 14px; }
-.cc-eq { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted); margin: 0 2px; }
-.cc-total { font-size: 22px; font-weight: 900; color: var(--muted2); letter-spacing: -.03em; }
-.cc-total.has { color: var(--amber); }
-
-.cc-score-row {
-  display: flex; align-items: center; gap: 8px; margin-bottom: 10px;
-}
-.cc-score-lbl { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--muted); }
-.cc-score-v { font-size: 20px; font-weight: 900; color: var(--muted2); letter-spacing: -.03em; }
-.cc-score-v.has { color: var(--amber); }
-
-.report-btn {
-  background: var(--purple); color: #fff; border: none;
-  border-radius: 8px; padding: 9px 14px; width: 100%;
-  font-family: 'Fraunces', serif; font-size: 12px; font-weight: 700;
-  cursor: pointer; letter-spacing: .01em;
-  box-shadow: 0 3px 10px rgba(109,40,217,.25);
-  transition: opacity .15s, transform .1s;
-}
-.report-btn:hover { opacity: .88; }
-.report-btn:active { transform: scale(.97); }
-.report-btn:disabled { opacity: .3; cursor: not-allowed; box-shadow: none; background: var(--muted2); }
-
-.report-tag {
-  display: flex; align-items: center; justify-content: center; gap: 6px;
-  padding: 7px; border-radius: 7px; margin-top: 0;
-  font-family: 'DM Mono', monospace; font-size: 10px; font-weight: 500;
-  width: 100%;
-}
-.report-tag.helped { background: var(--green-soft); color: var(--green); border: 1px solid var(--green-mid); }
-.report-tag.hurt { background: var(--red-soft); color: var(--red); border: 1px solid var(--red-mid); }
-.report-tag.neutral { background: var(--amber-soft); color: var(--amber); border: 1px solid #FBBF24; }
-
-/* weight adjust row */
-.wadj-row {
-  display: flex; align-items: center; gap: 5px; flex-wrap: wrap;
-  margin-top: 9px; padding-top: 9px;
-  border-top: 1.5px solid var(--bg3);
-}
-.wadj-lbl { font-family: 'DM Mono', monospace; font-size: 9px; color: var(--muted); flex: 1; min-width: 100%; margin-bottom: 4px; }
-.wadj-sname { font-family: 'DM Mono', monospace; font-size: 9px; color: var(--muted); }
-.wadj-btn {
-  width: 24px; height: 24px; border-radius: 6px;
-  border: 1.5px solid var(--border2);
-  background: var(--bg2); color: var(--text);
-  font-size: 14px; cursor: pointer;
-  display: flex; align-items: center; justify-content: center;
-  transition: all .15s; line-height: 1;
-}
-.wadj-btn:hover { background: var(--bg3); }
-.wadj-btn.plus:hover { background: var(--green-soft); border-color: var(--green-mid); color: var(--green); }
-.wadj-btn.minus:hover { background: var(--red-soft); border-color: var(--red-mid); color: var(--red); }
-.wadj-v {
-  font-family: 'DM Mono', monospace; font-size: 13px; font-weight: 500;
-  color: var(--amber); min-width: 26px; text-align: center;
-}
-
-/* ─────────────────────────────────────────
-   OUTPUT PANEL
-───────────────────────────────────────── */
-.out-col { background: var(--bg2); }
-.out-col .col-head { background: var(--bg2); }
-.out-col .col-body { padding: 14px 14px 20px; }
-
-.out-section { margin-bottom: 18px; }
-.out-lbl {
-  font-family: 'DM Mono', monospace; font-size: 9px;
-  letter-spacing: .14em; text-transform: uppercase; color: var(--muted2);
-  margin-bottom: 8px; display: flex; align-items: center; gap: 8px;
-}
-.out-lbl::after { content: ''; flex: 1; height: 1px; background: var(--border); }
-
-/* conv score rows */
-.csr {
-  display: flex; align-items: center; gap: 8px;
-  background: var(--surface); border: 1.5px solid var(--border);
-  border-radius: 8px; padding: 7px 10px; margin-bottom: 5px;
-  font-family: 'DM Mono', monospace; font-size: 11px;
-  transition: border-color .2s, box-shadow .2s;
-}
-.csr.active { border-color: var(--purple-mid); box-shadow: 0 0 0 2px var(--purple-soft); }
-.csr-id { color: var(--purple); font-weight: 500; min-width: 22px; }
-.csr-pair { color: var(--muted); font-size: 9px; flex: 1; }
-.csr-v { font-weight: 500; color: var(--muted2); margin-left: auto; }
-.csr-v.has { color: var(--amber); }
-
-/* total */
-.total-wrap { display: flex; align-items: baseline; gap: 6px; margin-bottom: 8px; }
-.total-num {
-  font-size: 46px; font-weight: 900; line-height: 1;
-  letter-spacing: -.04em; color: var(--muted2); transition: color .4s;
-}
-.total-num.has { color: var(--text); }
-.total-unit { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted); }
-
-.thresh-rule {
-  font-family: 'DM Mono', monospace; font-size: 10px; color: var(--muted);
-  line-height: 1.8; margin-bottom: 14px;
-}
-.thresh-rule span { color: var(--amber); font-weight: 500; }
-
-/* output orb */
-.orb-wrap { display: flex; justify-content: center; margin-bottom: 12px; }
-.output-orb {
-  width: 72px; height: 72px; border-radius: 50%;
-  border: 3px solid var(--border2);
-  display: flex; align-items: center; justify-content: center;
-  font-size: 30px;
-  background: var(--surface);
-  box-shadow: var(--shadow-sm);
-  transition: all .45s;
-}
-.output-orb.green {
-  border-color: var(--green-mid);
-  box-shadow: 0 0 0 6px var(--green-soft), var(--shadow);
-}
-.output-orb.red {
-  border-color: var(--red-mid);
-  box-shadow: 0 0 0 6px var(--red-soft), var(--shadow);
-}
-
-.verdict-box {
-  background: var(--surface); border: 1.5px solid var(--border);
-  border-radius: 9px; padding: 10px 14px;
-  font-family: 'DM Mono', monospace; font-size: 11px;
-  color: var(--muted); text-align: center; transition: all .3s;
-  line-height: 1.5;
-}
-.verdict-box.correct { background: var(--green-soft); border-color: var(--green-mid); color: var(--green); }
-.verdict-box.wrong { background: var(--red-soft); border-color: var(--red-mid); color: var(--red); }
-
-/* history */
-.hist-row {
-  display: flex; align-items: center; gap: 6px;
-  background: var(--surface); border: 1.5px solid var(--border);
-  border-radius: 7px; padding: 7px 10px; margin-bottom: 5px;
-  font-family: 'DM Mono', monospace; font-size: 10px;
-}
-.hr-r { color: var(--muted); min-width: 24px; }
-.hr-t { min-width: 40px; }
-.hr-g { min-width: 40px; }
-.hr-s { color: var(--muted); font-size: 9px; flex: 1; }
-.hr-res { font-weight: 500; }
-.hr-res.c { color: var(--green); }
-.hr-res.w { color: var(--red); }
-
-/* ─────────────────────────────────────────
-   ACTION BAR
-───────────────────────────────────────── */
-.action-bar {
-  flex-shrink: 0;
-  background: var(--surface);
-  border-top: 1.5px solid var(--border);
-  height: 62px;
-  display: flex; align-items: center;
-  padding: 0 18px; gap: 10px;
-  box-shadow: 0 -2px 8px rgba(0,0,0,.06);
-}
-.ab-info {
-  flex: 1; font-family: 'DM Mono', monospace; font-size: 11px;
-  color: var(--muted); line-height: 1.4;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
-
-.btn {
-  border: none; border-radius: 9px;
-  font-family: 'Fraunces', serif; font-size: 13px; font-weight: 700;
-  padding: 9px 18px; cursor: pointer; white-space: nowrap;
-  transition: opacity .15s, transform .1s;
-  letter-spacing: -.01em;
-}
-.btn:hover { opacity: .88; }
-.btn:active { transform: scale(.97); }
-.btn:disabled { opacity: .3; cursor: not-allowed; }
-
-.btn-ghost { background: var(--bg2); color: var(--text); border: 1.5px solid var(--border2); }
-.btn-blue { background: var(--blue); color: #fff; box-shadow: 0 2px 8px rgba(27,94,255,.25); }
-.btn-purple { background: var(--purple); color: #fff; box-shadow: 0 2px 8px rgba(109,40,217,.2); }
-.btn-green { background: var(--green); color: #fff; box-shadow: 0 2px 8px rgba(13,138,78,.25); }
-.btn-red { background: var(--red-soft); color: var(--red); border: 1.5px solid var(--red-mid); }
-.btn-reset { background: var(--bg3); color: var(--muted); border: 1.5px solid var(--border2); }
-.btn-reset:hover { background: var(--red-soft) !important; color: var(--red) !important; border-color: var(--red-mid) !important; opacity: 1 !important; }
-
-/* back link */
-.back-link {
-  display: inline-flex; align-items: center; gap: 6px;
-  text-decoration: none; cursor: pointer;
-  background: var(--bg2); border: 1.5px solid var(--border2);
-  border-radius: 999px; padding: 4px 12px 4px 8px;
-  font-family: 'DM Mono', monospace; font-size: 11px;
-  color: var(--muted); transition: all .18s;
-  flex-shrink: 0;
-}
-.back-link:hover { background: var(--bg3); color: var(--text); border-color: var(--border2); }
-.back-arrow { font-size: 13px; line-height: 1; }
-
-/* ─────────────────────────────────────────
-   UTILITIES & ANIMATIONS
-───────────────────────────────────────── */
-@keyframes fadeUp {
-  from { opacity: 0; transform: translateY(8px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-@keyframes pop {
-  0%   { transform: scale(1); }
-  45%  { transform: scale(1.12); }
-  100% { transform: scale(1); }
-}
-.pop { animation: pop .28s ease; }
-
-.kc-inp {
-  width: 52px; padding: 4px 6px;
-  border: 1.5px solid var(--border2);
-  border-radius: 7px;
-  background: var(--surface);
-  color: var(--text);
-  font-family: 'DM Mono', monospace;
-  font-size: 16px; font-weight: 700;
-  text-align: center;
-  outline: none;
-  transition: border-color .15s, box-shadow .15s;
-  margin-top: 2px;
-}
-.kc-inp:focus {
-  border-color: var(--blue-mid);
-  box-shadow: 0 0 0 3px var(--blue-soft);
-}
-.kc-inp::placeholder { color: var(--muted2); font-size: 11px; }
-
-.score-input {
-  width: 70px; padding: 5px 8px;
-  border: 1.5px solid var(--border2);
-  border-radius: 8px;
-  background: var(--bg2);
-  color: var(--text);
-  font-family: 'DM Mono', monospace;
-  font-size: 15px; font-weight: 500;
-  text-align: center;
-  transition: border-color .15s, box-shadow .15s;
-  outline: none;
-}
-.score-input:focus {
-  border-color: var(--purple-mid);
-  box-shadow: 0 0 0 3px var(--purple-soft);
-}
-.score-input::placeholder { color: var(--muted2); }
-
-.hidden { display: none !important; }
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.hidden{display:none!important}
 </style>
 </head>
 <body>
 
-<!-- ══════════════════════════════
-     SETUP SCREEN
-══════════════════════════════ -->
-<div id="setup-screen">
-  <div class="setup-badge">Neural Network · Role-Play Simulator</div>
-
-  <div class="setup-hero">
-    <h1>CNN<br><em>Classroom</em></h1>
-    <p>// students become neurons · convolution · backprop</p>
+<!-- ═══════════════ SETUP ═══════════════ -->
+<div id="setup">
+  <div class="su-badge">Human Neural Network · Role-Play Simulator</div>
+  <div class="su-hero">
+    <h1>Neural<br><em>Classroom</em></h1>
+    <p>// three layers · biased dice · real signal · backprop</p>
   </div>
 
-  <div class="setup-grid">
-    <div class="setup-card">
-      <div class="sc-tag">Total Students</div>
-      <div class="sc-val" id="s-total">17</div>
-      <div class="sc-sub">neurons total</div>
+  <div class="su-grid">
+    <div class="su-card">
+      <div class="su-tag">Layer A — Sensors</div>
+      <div class="su-val" id="s-a">6</div>
+      <div class="su-sub">sensor students</div>
       <div class="stepper">
-        <button class="step-btn" onclick="adj('total',-1)">−</button>
-        <span class="step-num" id="sv-total">17</span>
-        <button class="step-btn" onclick="adj('total',1)">+</button>
+        <button class="step-btn" onclick="adj('a',-1)">−</button>
+        <span class="step-num" id="sv-a">6</span>
+        <button class="step-btn" onclick="adj('a',1)">+</button>
       </div>
     </div>
-    <div class="setup-card">
-      <div class="sc-tag">Group A — Sensors</div>
-      <div class="sc-val" id="s-a">9</div>
-      <div class="sc-sub">roll dice · fire or silent</div>
-    </div>
-    <div class="setup-card">
-      <div class="sc-tag">Group B — Evaluators</div>
-      <div class="sc-val" id="s-b">8</div>
-      <div class="sc-sub">sliding window · report score</div>
-    </div>
-    <div class="setup-card">
-      <div class="sc-tag">Fire Threshold</div>
-      <div class="sc-val" id="s-thresh">5</div>
-      <div class="sc-sub">Σ ≥ threshold → GREEN</div>
+    <div class="su-card">
+      <div class="su-tag">Layer B — Hidden</div>
+      <div class="su-val" id="s-b">6</div>
+      <div class="su-sub">hidden students</div>
       <div class="stepper">
-        <button class="step-btn" onclick="adj('thresh',-1)">−</button>
-        <span class="step-num" id="sv-thresh">5</span>
-        <button class="step-btn" onclick="adj('thresh',1)">+</button>
+        <button class="step-btn" onclick="adj('b',-1)">−</button>
+        <span class="step-num" id="sv-b">6</span>
+        <button class="step-btn" onclick="adj('b',1)">+</button>
+      </div>
+    </div>
+    <div class="su-card">
+      <div class="su-tag">Layer C — Output</div>
+      <div class="su-val" id="s-c">4</div>
+      <div class="su-sub">output students</div>
+      <div class="stepper">
+        <button class="step-btn" onclick="adj('c',-1)">−</button>
+        <span class="step-num" id="sv-c">4</span>
+        <button class="step-btn" onclick="adj('c',1)">+</button>
+      </div>
+    </div>
+    <div class="su-card">
+      <div class="su-tag">Total Students</div>
+      <div class="su-val" id="s-total">16</div>
+      <div class="su-sub">auto-calculated</div>
+    </div>
+    <div class="su-card">
+      <div class="su-tag">C Node Start Weight</div>
+      <div class="su-val" id="s-w">20</div>
+      <div class="su-sub">multiplier per C node</div>
+      <div class="stepper">
+        <button class="step-btn" onclick="adj('w',-5)">−</button>
+        <span class="step-num" id="sv-w">20</span>
+        <button class="step-btn" onclick="adj('w',5)">+</button>
+      </div>
+    </div>
+    <div class="su-card">
+      <div class="su-tag">Threshold</div>
+      <div class="su-val" id="s-thresh">1200</div>
+      <div class="su-sub">Σ ≥ threshold → GREEN</div>
+      <div class="stepper">
+        <button class="step-btn" onclick="adj('thresh',-100)">−</button>
+        <span class="step-num" id="sv-thresh">1200</span>
+        <button class="step-btn" onclick="adj('thresh',100)">+</button>
       </div>
     </div>
   </div>
 
-  <div class="setup-flow">
-    <div class="sf-title">How each round works</div>
+  <div class="su-flow">
+    <div class="sf-title">How each round works — Biased Dice Rules</div>
     <div class="sf-row">
       <div class="sf-num a">A</div>
-      <div class="sf-label"><strong>Roll Phase</strong> — Group A students each roll a virtual dice. 4–6 = FIRE (1), 1–3 = SILENT (0). Default weight = 5.</div>
+      <div class="sf-label"><strong>Sensor Layer:</strong> Teacher announces RED or GREEN. A students roll dice.
+        🟢 GREEN: 3–6 = FIRE (1), 1–2 = silent. 🔴 RED: only 6 = FIRE, 1–5 = silent. They shout 0 or 1 to their B partner.</div>
     </div>
     <div class="sf-row">
       <div class="sf-num b">B</div>
-      <div class="sf-label"><strong>Convolution</strong> — Group B each watches two adjacent sensors (sliding window). Compute: (S_i × w_i) + (S_{i+1} × w_{i+1}).</div>
+      <div class="sf-label"><strong>Hidden Layer:</strong> B students listen to their connected A nodes, write down inputs, then roll their own dice using the same rule. They shout their result (0 or 1) to their C node.</div>
     </div>
     <div class="sf-row">
-      <div class="sf-num b">B</div>
-      <div class="sf-label"><strong>Report</strong> — Each evaluator announces their score aloud and clicks "Report to Teacher".</div>
+      <div class="sf-num c">C</div>
+      <div class="sf-label"><strong>Output Layer:</strong> C students receive B outputs. They select RED or GREEN based on majority, convert to numeric (GREEN=1, RED=0), multiply by their weight, and report the value to the teacher.</div>
     </div>
     <div class="sf-row">
-      <div class="sf-num c">✓</div>
-      <div class="sf-label"><strong>Evaluate</strong> — Σ of all B scores compared to threshold. GREEN or RED prediction revealed.</div>
-    </div>
-    <div class="sf-row">
-      <div class="sf-num d">↺</div>
-      <div class="sf-label"><strong>Backprop</strong> — If wrong, Group B adjusts sensor weights and explains why. Then new round!</div>
+      <div class="sf-num d">∑</div>
+      <div class="sf-label"><strong>Decision:</strong> Teacher sums all C values. If Σ ≥ threshold → 🟢 GREEN. After a wrong answer, C node weights are adjusted up or down.</div>
     </div>
   </div>
 
   <button class="btn-start" onclick="startSim()">Begin Class →</button>
 </div>
 
-<!-- ══════════════════════════════
-     APP SCREEN
-══════════════════════════════ -->
-<div id="app-screen" class="hidden">
+<!-- ═══════════════ APP ═══════════════ -->
+<div id="app" class="hidden">
 
   <!-- TOPBAR -->
   <div class="topbar">
-    <button class="back-link" onclick="goToSetup()">
-      <span class="back-arrow">←</span> Back
-    </button>
-    <div class="tb-divider"></div>
-    <div class="tb-brand">CNN <em>Classroom</em></div>
-    <div class="tb-divider"></div>
-    <div class="phase-chip" id="phase-chip">
-      <div class="phase-dot"></div>
-      <span id="phase-txt">Ready</span>
-    </div>
-    <div class="tb-divider"></div>
+    <button class="back-link" onclick="goToSetup()">← Back</button>
+    <div class="tb-div"></div>
+    <div class="tb-brand">Neural <em>Classroom</em></div>
+    <div class="tb-div"></div>
+    <div class="phase-chip" id="phase-chip"><div class="phase-dot"></div><span id="phase-txt">Ready</span></div>
+    <div class="tb-div"></div>
     <div class="rnd-badge">Round <span id="rnd-num">0</span></div>
     <div class="tb-right">
       <div class="stats-row">
@@ -852,35 +430,73 @@ body::before {
         <div class="stat">✗ <span class="sv r" id="s-wrong">0</span></div>
         <div class="stat">Acc <span class="sv" id="s-acc">—</span></div>
       </div>
-      <div class="tb-divider"></div>
+      <div class="tb-div"></div>
       <div class="target-chip">
-        TARGET:
-        <div class="target-bulb" id="target-bulb"></div>
+        TARGET: <div class="target-bulb" id="target-bulb"></div>
         <span class="target-name" id="target-name">—</span>
       </div>
     </div>
   </div>
 
-  <!-- THREE COLUMNS -->
+  <!-- COLUMNS -->
   <div class="columns">
+
+    <!-- COL A -->
+    <div class="col">
+      <div class="col-head">
+        <div class="col-tag a">● Layer A — Sensors</div>
+        <div class="col-title">Sensor Nodes</div>
+        <div class="col-sub">Select the traffic light, then click <b>Run</b> to assign each A node.</div>
+        <div class="tl-controls">
+          <div class="tl-lights">
+            <div class="tl-housing">
+              <div class="tl-bulb tl-red" id="tl-red" onclick="selectLight('RED')"></div>
+              <div class="tl-bulb tl-green" id="tl-green" onclick="selectLight('GREEN')"></div>
+            </div>
+            <div class="tl-label" id="tl-label">Select light →</div>
+          </div>
+          <button class="run-btn" id="run-btn" onclick="runLight()" disabled>▶ Run</button>
+        </div>
+        <div class="dice-hint" style="margin-top:6px">
+          🟢 GREEN → roll 3–6 = RED or GREEN (biased green)<br>
+          🔴 RED &nbsp;&nbsp;&nbsp;→ roll 6 = GREEN, else RED
+        </div>
+      </div>
+      <div class="col-body"><div class="node-grid" id="a-grid"></div></div>
+    </div>
 
     <!-- COL B -->
     <div class="col">
       <div class="col-head">
-        <div class="col-tag b">● Group B — Convolution Layer</div>
-        <div class="col-title">Evaluator Neurons</div>
+        <div class="col-tag b">● Layer B — Hidden</div>
+        <div class="col-title">Hidden Layer Nodes</div>
         <div class="col-sub">
-          Each evaluator watches <b>2 adjacent sensors</b> (sliding window).<br>
-          Enter sensor outputs heard from Group A, then report your score.
+          Write A inputs, roll own dice (same rule).<br>
+          Output 0 or 1 → shout to C node.
         </div>
         <div class="prog-wrap">
-          <span class="prog-txt" id="report-txt">0 reported</span>
-          <div class="prog-bar"><div class="prog-fill purple" id="report-bar" style="width:0%"></div></div>
+          <span class="prog-txt" id="b-prog-txt">0 set</span>
+          <div class="prog-bar"><div class="prog-fill purple" id="b-prog-bar" style="width:0%"></div></div>
         </div>
       </div>
-      <div class="col-body">
-        <div class="conv-list" id="conv-grid"></div>
+      <div class="col-body"><div class="b-list" id="b-grid"></div></div>
+    </div>
+
+    <!-- COL C -->
+    <div class="col">
+      <div class="col-head">
+        <div class="col-tag c">● Layer C — Output</div>
+        <div class="col-title">Output Layer Nodes</div>
+        <div class="col-sub">
+          Receive B inputs → select R/G → × weight = value.<br>
+          Report value to teacher!
+        </div>
+        <div class="prog-wrap">
+          <span class="prog-txt" id="c-prog-txt">0 reported</span>
+          <div class="prog-bar"><div class="prog-fill green" id="c-prog-bar" style="width:0%"></div></div>
+        </div>
       </div>
+      <div class="col-body"><div class="c-list" id="c-grid"></div></div>
     </div>
 
     <!-- COL OUT -->
@@ -891,8 +507,8 @@ body::before {
       </div>
       <div class="col-body">
         <div class="out-section">
-          <div class="out-lbl">Conv Scores</div>
-          <div id="conv-scores"></div>
+          <div class="out-lbl">C Node Values</div>
+          <div id="c-scores"></div>
         </div>
         <div class="out-section">
           <div class="out-lbl">Total Σ</div>
@@ -904,10 +520,8 @@ body::before {
             If Σ ≥ <span id="thresh-a">?</span> → 🟢 GREEN<br>
             If Σ &lt; <span id="thresh-b">?</span> → 🔴 RED
           </div>
-          <div class="orb-wrap">
-            <div class="output-orb" id="output-orb">❓</div>
-          </div>
-          <div class="verdict-box" id="verdict-box">Roll all sensors first...</div>
+          <div class="orb-wrap"><div class="output-orb" id="output-orb">❓</div></div>
+          <div class="verdict-box" id="verdict-box">Enter outputs above to begin...</div>
         </div>
         <div class="out-section">
           <div class="out-lbl">History</div>
@@ -920,319 +534,444 @@ body::before {
 
   <!-- ACTION BAR -->
   <div class="action-bar">
-    <div class="ab-info" id="ab-info">Press "New Round" to begin.</div>
-    <button class="btn btn-purple" id="btn-report" onclick="autoReportAll()" disabled>Auto-Report All</button>
+    <div class="ab-info" id="ab-info">Announce the target colour, then have students roll their dice.</div>
     <button class="btn btn-green" id="btn-eval" onclick="evaluateRound()" disabled>Evaluate →</button>
     <button class="btn btn-red" onclick="newRound()">New Round ↺</button>
-    <button class="btn btn-reset" onclick="resetClass()">Reset Class ⟳</button>
+    <button class="btn btn-reset" onclick="resetClass()">Reset ⟳</button>
   </div>
 
-</div><!-- /app-screen -->
+</div><!-- /app -->
 
 <script>
-/* ─────────────────────────────────────────
-   STATE
-───────────────────────────────────────── */
+// ════════════════════════════════
+// STATE
+// ════════════════════════════════
 const G = {
-  total: 17, sc: 9, ec: 8, threshold: 5,
-  round: 0, target: null,
-  sensors: [], evals: [],
-  correct: 0, wrong: 0,
-  history: [],
-  phase: 'idle',
+  aC:6, bC:6, cC:4, startWeight:20, threshold:1200,
+  round:0, target:null,
+  aNodes:[], bNodes:[], cNodes:[],
+  correct:0, wrong:0, history:[],
+  phase:'idle',
+  // connections: bNodes[i].aConn = array of A indices
 };
 
-/* ─────────────────────────────────────────
-   SETUP
-───────────────────────────────────────── */
-let _tot = 17, _thr = 5;
+// ════════════════════════════════
+// SETUP
+// ════════════════════════════════
+let _a=6,_b=6,_c=4,_w=20,_th=1200;
 
-function adj(k, d) {
-  if (k === 'total') {
-    _tot = Math.max(4, Math.min(30, _tot + d));
-    document.getElementById('sv-total').textContent = _tot;
-    document.getElementById('s-total').textContent = _tot;
-    const sc = Math.ceil(_tot / 2), ec = _tot - sc;
-    document.getElementById('s-a').textContent = sc;
-    document.getElementById('s-b').textContent = ec;
-  }
-  if (k === 'thresh') {
-    _thr = Math.max(1, Math.min(60, _thr + d));
-    document.getElementById('sv-thresh').textContent = _thr;
-    document.getElementById('s-thresh').textContent = _thr;
-  }
+function adj(k,d){
+  if(k==='a'){_a=Math.max(1,Math.min(15,_a+d));document.getElementById('sv-a').textContent=_a;document.getElementById('s-a').textContent=_a;}
+  if(k==='b'){_b=Math.max(1,Math.min(15,_b+d));document.getElementById('sv-b').textContent=_b;document.getElementById('s-b').textContent=_b;}
+  if(k==='c'){_c=Math.max(1,Math.min(10,_c+d));document.getElementById('sv-c').textContent=_c;document.getElementById('s-c').textContent=_c;}
+  if(k==='w'){_w=Math.max(5,Math.min(100,_w+d));document.getElementById('sv-w').textContent=_w;document.getElementById('s-w').textContent=_w;}
+  if(k==='thresh'){_th=Math.max(100,Math.min(10000,_th+d));document.getElementById('sv-thresh').textContent=_th;document.getElementById('s-thresh').textContent=_th;}
+  document.getElementById('s-total').textContent=_a+_b+_c;
 }
 
-function startSim() {
-  G.total = _tot; G.sc = Math.ceil(_tot / 2); G.ec = _tot - G.sc;
-  G.threshold = _thr; G.correct = 0; G.wrong = 0; G.history = [];
-  G.sensors = Array.from({length: G.sc}, (_, i) => ({
-    id: i, name: `S${i+1}`, student: `Student ${i+1}`,
-    weight: 5, output: null, dice: null
-  }));
-  G.evals = Array.from({length: G.ec}, (_, i) => ({
-    id: i, name: `E${i+1}`, student: `Student ${G.sc + i + 1}`,
-    s1: i % G.sc, s2: (i+1) % G.sc,
-    score: null, reported: false, effect: null
-  }));
-  document.getElementById('setup-screen').classList.add('hidden');
-  document.getElementById('app-screen').classList.remove('hidden');
-  document.getElementById('thresh-a').textContent = G.threshold;
-  document.getElementById('thresh-b').textContent = G.threshold;
+function startSim(){
+  G.aC=_a; G.bC=_b; G.cC=_c; G.startWeight=_w; G.threshold=_th;
+  G.correct=0; G.wrong=0; G.history=[];
+
+  // A nodes
+  G.aNodes = Array.from({length:G.aC},(_,i)=>({id:i,name:`A${i+1}`,colour:null,output:null}));
+
+  // B nodes — each B connected to ~2 adjacent A nodes (sliding window style)
+  G.bNodes = Array.from({length:G.bC},(_,i)=>{
+    const aConn=[i%G.aC,(i+1)%G.aC];
+    return {id:i,name:`B${i+1}`,student:`Student ${G.aC+i+1}`,aConn,output:null};
+  });
+
+  // C nodes — each C connected to ~2 adjacent B nodes
+  G.cNodes = Array.from({length:G.cC},(_,i)=>{
+    const bConn=[i%G.bC,(i+1)%G.bC];
+    return {id:i,name:`C${i+1}`,student:`Student ${G.aC+G.bC+i+1}`,bConn,weight:G.startWeight,selection:null,value:null,reported:false,effect:null};
+  });
+
+  document.getElementById('setup').classList.add('hidden');
+  document.getElementById('app').classList.remove('hidden');
+  document.getElementById('thresh-a').textContent=G.threshold;
+  document.getElementById('thresh-b').textContent=G.threshold;
   newRound();
 }
 
-/* ─────────────────────────────────────────
-   ROUND
-───────────────────────────────────────── */
-function newRound() {
-  G.round++; G.phase = 'rolling';
-  G.target = Math.random() < .5 ? 'GREEN' : 'RED';
-  G.sensors.forEach(s => { s.output = null; s.dice = null; });
-  G.evals.forEach(e => { e.score = null; e.reported = false; e.effect = null; });
+// ════════════════════════════════
+// ROUND
+// ════════════════════════════════
+function newRound(){
+  G.round++; G.phase='rolling';
+  G.target = null;
+  G.aNodes.forEach(n=>{n.output=null;n.colour=null;});
+  _selectedLight=null;
+  document.getElementById('tl-red').className='tl-bulb tl-red';
+  document.getElementById('tl-green').className='tl-bulb tl-green';
+  document.getElementById('tl-label').textContent='Select light →';
+  document.getElementById('tl-label').className='tl-label';
+  document.getElementById('run-btn').disabled=true;
+  G.bNodes.forEach(n=>n.output=null);
+  G.cNodes.forEach(n=>{n.selection=null;n.value=null;n.reported=false;n.effect=null;});
 
-  document.getElementById('rnd-num').textContent = G.round;
-  setPhase('roll', '① Input Phase — Group A reports verbally');
+  document.getElementById('rnd-num').textContent=G.round;
+  setPhase('roll','① Select Light → Run → Layer A gets colour');
+  document.getElementById('target-bulb').className='target-bulb';
+  document.getElementById('target-name').textContent='—';
 
-  const bulb = document.getElementById('target-bulb');
-  bulb.className = 'target-bulb ' + G.target.toLowerCase();
-  document.getElementById('target-name').textContent = G.target;
 
-  document.getElementById('total-sum').textContent = '—';
+
+  document.getElementById('total-sum').textContent='—';
   document.getElementById('total-sum').classList.remove('has');
-  document.getElementById('output-orb').className = 'output-orb';
-  document.getElementById('output-orb').textContent = '❓';
-  document.getElementById('verdict-box').className = 'verdict-box';
-  document.getElementById('verdict-box').textContent = 'Enter sensor outputs in Group B cards...';
-  document.getElementById('btn-eval').disabled = true;
-  document.getElementById('btn-report').disabled = false;
+  document.getElementById('output-orb').className='output-orb';
+  document.getElementById('output-orb').textContent='❓';
+  document.getElementById('verdict-box').className='verdict-box';
+  document.getElementById('verdict-box').textContent='Enter all outputs above, then evaluate.';
+  document.getElementById('btn-eval').disabled=true;
 
-  G.phase = 'reporting';
-  setPhase('conv', '② Input Phase — Enter sensor outputs');
-  renderEvals(); renderConvScores(); updateProgress();
-  setInfo('Group A students roll dice and report verbally. Enter each sensor output directly on the Group B evaluator cards.');
+  renderA(); renderB(); renderC(); renderCScores(); updateProgress();
+  setInfo('Announce the target colour. Layer A & B: roll dice using the rule on your card. Teacher enters results.');
 }
 
-/* ─────────────────────────────────────────
-   SENSORS
-───────────────────────────────────────── */
-function checkAllRolled() {
-  // Move to reporting phase as soon as any sensor has data — teacher sets progressively
-  const anyData = G.sensors.some(s => s.output !== null);
-  if (!anyData) return;
-  if (G.phase === 'rolling') {
-    G.phase = 'reporting';
-    setPhase('conv', '② Report Phase — Group B');
-    setInfo('Enter sensor outputs on each evaluator card, then report scores to the teacher.');
-    document.getElementById('btn-report').disabled = false;
-  }
-}
-
-/* ─────────────────────────────────────────
-   EVALUATORS
-───────────────────────────────────────── */
-function renderEvals() {
-  const g = document.getElementById('conv-grid');
-  g.innerHTML = '';
-  G.evals.forEach((e, i) => {
-    const s1 = G.sensors[e.s1], s2 = G.sensors[e.s2];
-    const computed = (s1.output !== null && s2.output !== null)
-      ? (s1.output * s1.weight) + (s2.output * s2.weight) : null;
-    const canReport = G.phase === 'reporting' && !e.reported;
-    const showAdj = G.phase === 'done';
-
-    const card = document.createElement('div');
-    card.id = `cc-${i}`;
-    card.className = 'conv-card'
-      + (e.reported ? ' reported' : '')
-      + (e.effect === 'helped' ? ' helped' : '')
-      + (e.effect === 'hurt' ? ' hurt' : '');
-    card.style.animationDelay = (i * .03) + 's';
-
-    const k1cls = s1.output === 1 ? 'fired' : s1.output === 0 ? 'silent' : '';
-    const k2cls = s2.output === 1 ? 'fired' : s2.output === 0 ? 'silent' : '';
-
-    card.innerHTML = `
-      <div class="cc-head">
-        <div class="cc-id">${e.name}</div>
-        <div class="cc-student">${e.student}</div>
-        <div class="cc-pair-badge">S${e.s1+1}+S${e.s2+1}</div>
-      </div>
-      <div class="cc-kernel">
-        <div class="kc ${k1cls}">
-          <div class="kc-lbl">S${e.s1+1} <span class="kc-w">w=${s1.weight}</span></div>
-          ${!e.reported
-            ? `<input class="kc-inp" id="s1inp-${i}" type="number" min="0" max="1"
-                placeholder="0/1" value="${s1.output !== null ? s1.output : ''}"
-                oninput="onSensorInput(${i})" />`
-            : `<div class="kc-v ${k1cls}">${s1.output !== null ? s1.output : '?'}</div>`
-          }
-        </div>
-        <div class="cc-op">+</div>
-        <div class="kc ${k2cls}">
-          <div class="kc-lbl">S${e.s2+1} <span class="kc-w">w=${s2.weight}</span></div>
-          ${!e.reported
-            ? `<input class="kc-inp" id="s2inp-${i}" type="number" min="0" max="1"
-                placeholder="0/1" value="${s2.output !== null ? s2.output : ''}"
-                oninput="onSensorInput(${i})" />`
-            : `<div class="kc-v ${k2cls}">${s2.output !== null ? s2.output : '?'}</div>`
-          }
-        </div>
-        <div class="cc-eq">=</div>
-        <div class="cc-total ${computed!==null?'has':''}" id="computed-${i}">${computed !== null ? computed : '?'}</div>
-      </div>
-      <div class="cc-score-row">
-        <div class="cc-score-lbl">Reported score:</div>
-        ${!e.reported
-          ? `<input class="score-input" id="score-inp-${i}" type="number" min="0" max="999"
-              placeholder="${computed !== null ? computed : '?'}"
-              value="${computed !== null ? computed : ''}"
-              oninput="onScoreInput(${i})" />`
-          : `<div class="cc-score-v has">${e.score}</div>`
-        }
-      </div>
-      ${!e.reported
-        ? `<button class="report-btn" id="rbtn-${i}" onclick="reportEval(${i})"
-            ${canReport ? '' : 'disabled'}>📢 Report to Teacher</button>`
-        : `<div class="report-tag ${e.effect}">${
-            e.effect === 'helped' ? '✓ Helped — contributed correctly'
-            : e.effect === 'hurt' ? '✗ Hurt — contributed to wrong answer'
-            : '⊘ Neutral — score was 0'}</div>`
-      }
-      ${showAdj ? `
-        <div class="wadj-row">
-          <div class="wadj-lbl">Adjust weights (backprop):</div>
-          <span class="wadj-sname">S${e.s1+1}</span>
-          <button class="wadj-btn minus" onclick="adjW(${e.s1},-1)">−</button>
-          <span class="wadj-v" id="wv-${e.s1}">${s1.weight}</span>
-          <button class="wadj-btn plus" onclick="adjW(${e.s1},+1)">+</button>
-          <span class="wadj-sname" style="margin-left:4px">S${e.s2+1}</span>
-          <button class="wadj-btn minus" onclick="adjW(${e.s2},-1)">−</button>
-          <span class="wadj-v" id="wv-${e.s2}">${s2.weight}</span>
-          <button class="wadj-btn plus" onclick="adjW(${e.s2},+1)">+</button>
-        </div>` : ''}
+// ════════════════════════════════
+// LAYER A
+// ════════════════════════════════
+function renderA(){
+  const g=document.getElementById('a-grid'); g.innerHTML='';
+  G.aNodes.forEach((n,i)=>{
+    const assigned = n.colour !== null;
+    const colClass = assigned ? ('colour-'+n.colour.toLowerCase()) : '';
+    const card=document.createElement('div');
+    card.id=`ac-${i}`;
+    card.className='a-card '+colClass;
+    card.style.animationDelay=(i*.03)+'s';
+    card.innerHTML=`
+      <div class="a-name">${n.name}</div>
+      <div class="a-colour-word ${assigned?n.colour.toLowerCase():'pending'}">${assigned?n.colour:'???'}</div>
+      <div class="a-colour-badge">${assigned?(n.colour==='GREEN'?'🟢 GREEN':'🔴 RED'):'not set'}</div>
     `;
     g.appendChild(card);
   });
 }
 
-function onSensorInput(i) {
-  const e = G.evals[i];
-  const v1 = document.getElementById(`s1inp-${i}`);
-  const v2 = document.getElementById(`s2inp-${i}`);
-  const scoreInp = document.getElementById(`score-inp-${i}`);
-  const compEl = document.getElementById(`computed-${i}`);
-  const s1 = G.sensors[e.s1], s2 = G.sensors[e.s2];
-  // persist sensor values into state
-  if (v1 && v1.value !== '') { s1.output = parseInt(v1.value); }
-  if (v2 && v2.value !== '') { s2.output = parseInt(v2.value); }
-  // auto-compute score
-  if (s1.output !== null && s2.output !== null) {
-    const calc = (s1.output * s1.weight) + (s2.output * s2.weight);
-    if (compEl) { compEl.textContent = calc; compEl.classList.add('has'); }
-    if (scoreInp && scoreInp.value === '') scoreInp.value = calc;
+// Traffic light selection
+let _selectedLight = null;
+function selectLight(colour){
+  _selectedLight = colour;
+  document.getElementById('tl-red').className='tl-bulb tl-red'+(colour==='RED'?' active':'');
+  document.getElementById('tl-green').className='tl-bulb tl-green'+(colour==='GREEN'?' active':'');
+  const lbl=document.getElementById('tl-label');
+  lbl.textContent=colour; lbl.className='tl-label '+colour.toLowerCase();
+  // sync topbar target too
+  document.getElementById('target-bulb').className='target-bulb '+colour.toLowerCase();
+  document.getElementById('target-name').textContent=colour;
+  G.target=colour;
+  document.getElementById('run-btn').disabled=false;
+}
+
+function runLight(){
+  if(!_selectedLight) return;
+  // Assign each A node RED or GREEN based on biased dice
+  // GREEN light: roll 3-6 (4/6 chance) → GREEN, 1-2 → RED
+  // RED light: roll 6 (1/6 chance) → GREEN, 1-5 → RED
+  G.aNodes.forEach((n,i)=>{
+    const dice=Math.floor(Math.random()*6)+1;
+    if(_selectedLight==='GREEN'){
+      n.colour = dice>=3 ? 'GREEN' : 'RED';
+    } else {
+      n.colour = dice===6 ? 'GREEN' : 'RED';
+    }
+    n.output = n.colour==='GREEN' ? 1 : 0;
+  });
+  renderA();
+  updateBKernels();
+  updateProgress();
+  setInfo('A nodes assigned! Students — check your card colour. B nodes: collect A outputs and roll your own dice.');
+}
+
+// ════════════════════════════════
+// LAYER B
+// ════════════════════════════════
+function renderB(){
+  const g=document.getElementById('b-grid'); g.innerHTML='';
+  G.bNodes.forEach((n,i)=>{
+    const card=document.createElement('div');
+    card.id=`bc-${i}`;
+    card.className='b-card'+(n.output!==null?' has-input':'');
+    card.style.animationDelay=(i*.04)+'s';
+    const connStr=n.aConn.map(x=>`A${x+1}`).join('+');
+    const aInputsHtml=n.aConn.map((ai,j)=>{
+      const aOut=G.aNodes[ai]?.output;
+      return `<div class="b-inp-cell">
+        <div class="b-inp-lbl">A${ai+1}</div>
+        <input class="b-inp" type="number" min="0" max="1" placeholder="?" id="binp-${i}-${j}"
+          value="${aOut!==null?aOut:''}" oninput="setBInput(${i},${j},this.value)" />
+      </div>`;
+    }).join('<div class="b-arrow">→</div>');
+
+    card.innerHTML=`
+      <div class="b-head">
+        <div class="b-id">${n.name}</div>
+        <div class="b-student">${n.student}</div>
+        <div class="b-conn-badge">${connStr}</div>
+      </div>
+      <div class="b-inputs-row">${aInputsHtml}
+        <div class="b-arrow" style="margin:0 4px">=</div>
+        <div class="b-inp-cell">
+          <div class="b-inp-lbl">Sum</div>
+          <div class="b-inp" id="bsum-${i}" style="background:var(--bg2);font-size:13px;padding:3px 4px;
+            border-radius:6px;border:1.5px solid var(--border);width:40px;text-align:center;
+            color:var(--muted2)">${computeBSum(n)??'?'}</div>
+        </div>
+      </div>
+      <div class="b-out-row">
+        <div class="b-out-lbl">Roll dice → my output (0 or 1):</div>
+        <input class="b-dice-inp" type="number" min="0" max="1" placeholder="0/1"
+          value="${n.output!==null?n.output:''}" oninput="setBOut(${i},this.value)" />
+        <div class="b-out-val ${n.output!==null?'has':''}" id="bout-${i}">${n.output!==null?n.output:'?'}</div>
+      </div>
+    `;
+    g.appendChild(card);
+  });
+}
+
+function computeBSum(n){
+  const vals=n.aConn.map(ai=>G.aNodes[ai]?.output).filter(v=>v!==null&&v!==undefined);
+  if(vals.length===0) return null;
+  return vals.reduce((a,v)=>a+v,0);
+}
+
+function setBInput(bi,j,v){
+  const ai=G.bNodes[bi].aConn[j];
+  const val=parseInt(v);
+  G.aNodes[ai].output=(val===0||val===1)?val:null;
+  // update A grid
+  const aCard=document.getElementById('a-grid').children[ai];
+  if(aCard){
+    aCard.className='a-card'+(G.aNodes[ai].output===1?' fired':G.aNodes[ai].output===0?' silent':'');
+    const out=aCard.querySelector('.a-out'); if(out) out.textContent=G.aNodes[ai].output!==null?G.aNodes[ai].output:'?';
+    const inp=aCard.querySelector('.a-inp'); if(inp&&v!=='') inp.value=v;
   }
-  // unlock report button
-  const btn = document.getElementById(`rbtn-${i}`);
-  if (btn) btn.disabled = !(scoreInp && scoreInp.value !== '');
-  checkAllRolled();
+  const sumEl=document.getElementById(`bsum-${bi}`);
+  if(sumEl) sumEl.textContent=computeBSum(G.bNodes[bi])??'?';
+  updateProgress();
 }
 
-function onScoreInput(i) {
-  const inp = document.getElementById(`score-inp-${i}`);
-  const btn = document.getElementById(`rbtn-${i}`);
-  if (btn) btn.disabled = !inp || inp.value === '';
+function setBOut(i,v){
+  const val=parseInt(v);
+  G.bNodes[i].output=(val===0||val===1)?val:null;
+  const card=document.getElementById(`bc-${i}`);
+  if(card){
+    card.className='b-card'+(G.bNodes[i].output!==null?' has-input':'');
+    const bv=document.getElementById(`bout-${i}`);
+    if(bv){bv.textContent=G.bNodes[i].output!==null?G.bNodes[i].output:'?';bv.className='b-out-val'+(G.bNodes[i].output!==null?' has':'');}
+  }
+  // auto-fill C B-input fields
+  updateCBInputs(i);
+  updateProgress();
+  checkCanEvaluate();
 }
 
-function reportEval(i) {
-  if (G.phase !== 'reporting') return;
-  const e = G.evals[i];
-  const inp = document.getElementById(`score-inp-${i}`);
-  const s1 = G.sensors[e.s1], s2 = G.sensors[e.s2];
-  const computed = (s1.output !== null && s2.output !== null)
-    ? (s1.output * s1.weight) + (s2.output * s2.weight) : 0;
-  const entered = inp ? parseFloat(inp.value) : NaN;
-  e.score = !isNaN(entered) ? entered : computed;
-  e.reported = true;
-  e.effect = e.score > 0 ? 'helped' : 'neutral';
-  renderEvals(); renderConvScores(); updateProgress(); checkAllReported();
+function updateBKernels(){
+  // Update B sum displays when A changes
+  G.bNodes.forEach((n,i)=>{
+    const sumEl=document.getElementById(`bsum-${i}`); if(sumEl) sumEl.textContent=computeBSum(n)??'?';
+    n.aConn.forEach((ai,j)=>{
+      const inp=document.getElementById(`binp-${i}-${j}`);
+      if(inp&&G.aNodes[ai].output!==null) inp.value=G.aNodes[ai].output;
+    });
+  });
 }
 
-function autoReportAll() {
-  if (G.phase !== 'reporting') return;
-  G.evals.forEach((e, i) => { if (!e.reported) reportEval(i); });
+// ════════════════════════════════
+// LAYER C
+// ════════════════════════════════
+function renderC(){
+  const g=document.getElementById('c-grid'); g.innerHTML='';
+  G.cNodes.forEach((n,i)=>{
+    const card=document.createElement('div');
+    card.id=`cc-${i}`;
+    card.className='c-card'+(n.reported?' reported':'');
+    card.style.animationDelay=(i*.05)+'s';
+    const connStr=n.bConn.map(x=>`B${x+1}`).join('+');
+    const bInputsHtml=n.bConn.map((bi,j)=>{
+      const bOut=G.bNodes[bi]?.output;
+      return `<div class="b-inp-cell">
+        <div class="b-inp-lbl">B${bi+1}</div>
+        <input class="b-inp" type="number" min="0" max="1" placeholder="?" id="cinp-${i}-${j}"
+          value="${bOut!==null&&bOut!==undefined?bOut:''}" oninput="setCBInput(${i},${j},this.value)" />
+      </div>`;
+    }).join('<div class="b-arrow" style="font-size:11px;color:var(--muted2)">+</div>');
+
+    const numeric=n.selection==='GREEN'?1:n.selection==='RED'?0:null;
+    const value=numeric!==null?(numeric*n.weight):null;
+
+    card.innerHTML=`
+      <div class="c-head">
+        <div class="c-id">${n.name}</div>
+        <div class="c-student">${n.student}</div>
+        <div class="c-conn-badge">${connStr}</div>
+      </div>
+      <div class="c-inputs-row">${bInputsHtml}
+        <div style="margin:0 6px;font-family:'DM Mono',monospace;font-size:11px;color:var(--muted)">→ majority →</div>
+        <select class="sel-rg" id="csel-${i}" onchange="setCSelect(${i},this.value)" ${n.reported?'disabled':''}>
+          <option value="">R/G?</option>
+          <option value="RED" ${n.selection==='RED'?'selected':''}>🔴 RED</option>
+          <option value="GREEN" ${n.selection==='GREEN'?'selected':''}>🟢 GREEN</option>
+        </select>
+      </div>
+      <div class="c-formula">
+        <div class="c-num ${numeric!==null?'has':''}">${numeric!==null?numeric:'?'}</div>
+        <span>×</span>
+        <input class="c-weight-inp" type="number" value="${n.weight}" min="0" max="999"
+          oninput="setCWeight(${i},this.value)" ${n.reported?'disabled':''} />
+        <span>=</span>
+        <div class="c-value ${value!==null?'has':''}" id="cval-${i}">${value!==null?value:'?'}</div>
+      </div>
+      ${!n.reported
+        ?`<button class="report-btn" id="rbtn-${i}" onclick="reportC(${i})"
+            ${value!==null?'':'disabled'}>📢 Report to Teacher</button>`
+        :`<div class="report-tag ${n.effect}">${
+            n.effect==='helped'?'✓ Helped — correct contribution'
+            :n.effect==='hurt'?'✗ Hurt — contributed to wrong answer'
+            :'⊘ Neutral — value was 0'}</div>`
+      }
+      ${G.phase==='done'&&!n.reported?'':G.phase==='done'?`
+        <div class="wadj-row">
+          <div class="wadj-lbl">Adjust weight for next round (backprop):</div>
+          <button class="wadj-btn minus" onclick="adjCWeight(${i},-5)">−5</button>
+          <span class="wadj-v" id="cw-${i}">${n.weight}</span>
+          <button class="wadj-btn plus" onclick="adjCWeight(${i},+5)">+5</button>
+        </div>`:''}
+    `;
+    g.appendChild(card);
+  });
 }
 
-function checkAllReported() {
-  if (!G.evals.every(e => e.reported)) return;
-  document.getElementById('btn-eval').disabled = false;
-  updateTotalSum();
-  setInfo('All scores reported! Click Evaluate to see the network\'s prediction.');
+function updateCBInputs(bi){
+  G.cNodes.forEach((n,ci)=>{
+    n.bConn.forEach((b,j)=>{
+      if(b===bi){
+        const inp=document.getElementById(`cinp-${ci}-${j}`);
+        if(inp&&G.bNodes[bi].output!==null) inp.value=G.bNodes[bi].output;
+      }
+    });
+  });
 }
 
-/* ─────────────────────────────────────────
-   OUTPUT
-───────────────────────────────────────── */
-function renderConvScores() {
-  document.getElementById('conv-scores').innerHTML = G.evals.map(e => `
-    <div class="csr ${e.reported ? 'active' : ''}" id="csr-${e.id}">
-      <span class="csr-id">${e.name}</span>
-      <span class="csr-pair">S${e.s1+1}+S${e.s2+1}</span>
-      <span class="csr-v ${e.score!==null?'has':''}">${e.score !== null ? e.score : '—'}</span>
+function setCBInput(ci,j,v){
+  const bi=G.cNodes[ci].bConn[j];
+  const val=parseInt(v);
+  G.bNodes[bi].output=(val===0||val===1)?val:null;
+  const bCard=document.getElementById(`bc-${bi}`);
+  if(bCard){
+    bCard.className='b-card'+(G.bNodes[bi].output!==null?' has-input':'');
+    const bv=document.getElementById(`bout-${bi}`);
+    if(bv){bv.textContent=G.bNodes[bi].output!==null?G.bNodes[bi].output:'?';bv.className='b-out-val'+(G.bNodes[bi].output!==null?' has':'');}
+    const dinp=bCard.querySelector('.b-dice-inp');
+    if(dinp&&v!=='') dinp.value=v;
+  }
+  updateProgress();
+  checkCanEvaluate();
+}
+
+function setCSelect(i,v){
+  G.cNodes[i].selection=v||null;
+  recomputeCValue(i);
+}
+
+function setCWeight(i,v){
+  const val=parseFloat(v);
+  if(!isNaN(val)) G.cNodes[i].weight=val;
+  recomputeCValue(i);
+}
+
+function adjCWeight(i,d){
+  G.cNodes[i].weight=Math.max(0,G.cNodes[i].weight+d);
+  const el=document.getElementById(`cw-${i}`); if(el) el.textContent=G.cNodes[i].weight;
+  const winp=document.getElementById(`cc-${i}`)?.querySelector('.c-weight-inp');
+  if(winp) winp.value=G.cNodes[i].weight;
+  recomputeCValue(i);
+}
+
+function recomputeCValue(i){
+  const n=G.cNodes[i];
+  const numeric=n.selection==='GREEN'?1:n.selection==='RED'?0:null;
+  const value=numeric!==null?(numeric*n.weight):null;
+  const valEl=document.getElementById(`cval-${i}`);
+  if(valEl){valEl.textContent=value!==null?value:'?';valEl.className='c-value'+(value!==null?' has':'');}
+  const numEl=document.getElementById(`cc-${i}`)?.querySelector('.c-num');
+  if(numEl){numEl.textContent=numeric!==null?numeric:'?';numEl.className='c-num'+(numeric!==null?' has':'');}
+  const rbtn=document.getElementById(`rbtn-${i}`);
+  if(rbtn) rbtn.disabled=value===null;
+  renderCScores();
+  updateProgress();
+  checkCanEvaluate();
+}
+
+function reportC(i){
+  const n=G.cNodes[i];
+  const numeric=n.selection==='GREEN'?1:n.selection==='RED'?0:null;
+  if(numeric===null) return;
+  n.value=numeric*n.weight;
+  n.reported=true;
+  n.effect=n.value>0?'helped':'neutral';
+  renderC(); renderCScores(); updateProgress(); checkCanEvaluate();
+}
+
+// ════════════════════════════════
+// OUTPUT
+// ════════════════════════════════
+function renderCScores(){
+  document.getElementById('c-scores').innerHTML=G.cNodes.map(n=>`
+    <div class="csr ${n.reported?'active':''}">
+      <span class="csr-id">${n.name}</span>
+      <span class="csr-pair">${n.bConn.map(b=>`B${b+1}`).join('+')} × ${n.weight}</span>
+      <span class="csr-v ${n.value!==null?'has':''}">${n.value!==null?n.value:'—'}</span>
     </div>
   `).join('');
 }
 
-function updateTotalSum() {
-  const sum = G.evals.filter(e => e.reported).reduce((a, e) => a + (e.score || 0), 0);
-  const el = document.getElementById('total-sum');
-  el.textContent = sum; el.classList.add('has');
+function checkCanEvaluate(){
+  const allReported=G.cNodes.every(n=>n.reported);
+  document.getElementById('btn-eval').disabled=!allReported;
 }
 
-function evaluateRound() {
-  if (G.phase !== 'reporting') return;
-  G.phase = 'done';
-  const sum = G.evals.reduce((a, e) => a + (e.score || 0), 0);
-  const pred = sum >= G.threshold ? 'GREEN' : 'RED';
-  const ok = pred === G.target;
+function evaluateRound(){
+  G.phase='done';
+  const sum=G.cNodes.reduce((a,n)=>a+(n.value||0),0);
+  const pred=sum>=G.threshold?'GREEN':'RED';
+  const ok=pred===G.target;
 
-  G.evals.forEach(e => {
-    if (e.score === 0) { e.effect = 'neutral'; return; }
-    e.effect = ok ? 'helped' : (e.score > 0 ? 'hurt' : 'helped');
+  G.cNodes.forEach(n=>{
+    if(!n.value) n.effect='neutral';
+    else n.effect=ok?'helped':'hurt';
   });
 
-  const orb = document.getElementById('output-orb');
-  orb.className = 'output-orb ' + (pred === 'GREEN' ? 'green' : 'red');
-  orb.textContent = pred === 'GREEN' ? '🟢' : '🔴';
+  const orb=document.getElementById('output-orb');
+  orb.className='output-orb '+(pred==='GREEN'?'green':'red');
+  orb.textContent=pred==='GREEN'?'🟢':'🔴';
 
-  const vb = document.getElementById('verdict-box');
-  if (ok) {
-    vb.className = 'verdict-box correct';
-    vb.textContent = `✓ CORRECT! Σ = ${sum} ≥ ${G.threshold} → ${pred}`;
-    G.correct++;
-  } else {
-    vb.className = 'verdict-box wrong';
-    vb.textContent = `✗ WRONG! Σ = ${sum} (threshold ${G.threshold}). Adjust weights!`;
-    G.wrong++;
-  }
+  document.getElementById('total-sum').textContent=sum;
+  document.getElementById('total-sum').classList.add('has');
 
-  const t = G.correct + G.wrong;
-  document.getElementById('s-correct').textContent = G.correct;
-  document.getElementById('s-wrong').textContent = G.wrong;
-  document.getElementById('s-acc').textContent = t ? Math.round(G.correct/t*100)+'%' : '—';
+  const vb=document.getElementById('verdict-box');
+  if(ok){vb.className='verdict-box correct';vb.textContent=`✓ CORRECT! Σ = ${sum} — Network predicted ${pred} correctly.`;G.correct++;}
+  else{vb.className='verdict-box wrong';vb.textContent=`✗ WRONG! Σ = ${sum} (threshold ${G.threshold}). Adjust C node weights!`;G.wrong++;}
 
-  G.history.unshift({r: G.round, t: G.target, p: pred, s: sum, ok});
+  const t=G.correct+G.wrong;
+  document.getElementById('s-correct').textContent=G.correct;
+  document.getElementById('s-wrong').textContent=G.wrong;
+  document.getElementById('s-acc').textContent=t?Math.round(G.correct/t*100)+'%':'—';
+
+  G.history.unshift({r:G.round,t:G.target,p:pred,s:sum,ok});
   renderHistory();
-  setPhase(ok ? 'done correct' : 'done wrong', ok ? '✓ Correct!' : '✗ Wrong — adjust weights');
-  setInfo(ok
-    ? `✓ Correct! Σ = ${sum} ≥ ${G.threshold}. Great work — start a new round!`
-    : `✗ Wrong! Σ = ${sum} vs threshold ${G.threshold}. Group B: use +/− to adjust weights, then start a new round.`);
-  renderEvals();
+  setPhase(ok?'done ok':'done bad',ok?'✓ Correct!':'✗ Wrong — adjust weights');
+  setInfo(ok?`✓ Correct! Σ = ${sum} ≥ ${G.threshold}. Start a new round!`
+    :`✗ Wrong. Use the +/− buttons on C node cards to adjust weights, then start a new round.`);
+  renderC();
 }
 
-function renderHistory() {
-  document.getElementById('history-list').innerHTML =
-    G.history.slice(0, 6).map(h => `
+function renderHistory(){
+  document.getElementById('history-list').innerHTML=
+    G.history.slice(0,6).map(h=>`
       <div class="hist-row">
         <span class="hr-r">#${h.r}</span>
         <span class="hr-t" style="color:${h.t==='GREEN'?'var(--green)':'var(--red)'}">${h.t}</span>
@@ -1244,44 +983,37 @@ function renderHistory() {
     `).join('');
 }
 
-function adjW(idx, d) {
-  G.sensors[idx].weight = Math.max(0, Math.min(20, G.sensors[idx].weight + d));
-  document.querySelectorAll(`#wv-${idx}`).forEach(el => el.textContent = G.sensors[idx].weight);
-  const sc = document.getElementById(`sc-${idx}`);
-  if (sc) { const wb = sc.querySelector('.sc-w'); if (wb) wb.textContent = `w = ${G.sensors[idx].weight}`; }
-  renderEvals();
+// ════════════════════════════════
+// HELPERS
+// ════════════════════════════════
+function updateProgress(){
+  const bSet=G.bNodes.filter(n=>n.output!==null).length;
+  const cRep=G.cNodes.filter(n=>n.reported).length;
+  document.getElementById('b-prog-txt').textContent=`${bSet} / ${G.bC} set`;
+  document.getElementById('b-prog-bar').style.width=(bSet/G.bC*100)+'%';
+  document.getElementById('c-prog-txt').textContent=`${cRep} / ${G.cC} reported`;
+  document.getElementById('c-prog-bar').style.width=(cRep/G.cC*100)+'%';
 }
 
-/* ─────────────────────────────────────────
-   HELPERS
-───────────────────────────────────────── */
-function setPhase(cls, txt) {
-  document.getElementById('phase-chip').className = 'phase-chip ' + cls;
-  document.getElementById('phase-txt').textContent = txt;
+function setPhase(cls,txt){
+  document.getElementById('phase-chip').className='phase-chip '+cls;
+  document.getElementById('phase-txt').textContent=txt;
 }
-function setInfo(t) { document.getElementById('ab-info').textContent = t; }
+function setInfo(t){document.getElementById('ab-info').textContent=t;}
 
-function resetClass() {
-  if (!confirm('Reset the class? This will clear all history and restart from Round 1.')) return;
-  G.history = [];
-  G.correct = 0; G.wrong = 0;
-  G.round = 0;
-  document.getElementById('s-correct').textContent = '0';
-  document.getElementById('s-wrong').textContent = '0';
-  document.getElementById('s-acc').textContent = '—';
-  document.getElementById('history-list').innerHTML = '';
+function goToSetup(){
+  document.getElementById('app').classList.add('hidden');
+  document.getElementById('setup').classList.remove('hidden');
+}
+
+function resetClass(){
+  if(!confirm('Reset the class? This clears all history and restarts from Round 1.')) return;
+  G.history=[]; G.correct=0; G.wrong=0; G.round=0;
+  document.getElementById('s-correct').textContent='0';
+  document.getElementById('s-wrong').textContent='0';
+  document.getElementById('s-acc').textContent='—';
+  document.getElementById('history-list').innerHTML='';
   newRound();
-}
-
-function goToSetup() {
-  document.getElementById('app-screen').classList.add('hidden');
-  document.getElementById('setup-screen').classList.remove('hidden');
-}
-
-function updateProgress() {
-  const reported = G.evals.filter(e => e.reported).length;
-  document.getElementById('report-txt').textContent = `${reported} / ${G.ec} reported`;
-  document.getElementById('report-bar').style.width = (reported/G.ec*100) + '%';
 }
 </script>
 </body>

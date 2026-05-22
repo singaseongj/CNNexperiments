@@ -377,14 +377,9 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
       </div>
     </div>
     <div class="su-card">
-      <div class="su-tag">Threshold</div>
-      <div class="su-val" id="s-thresh">1200</div>
-      <div class="su-sub">Σ ≥ threshold → GREEN</div>
-      <div class="stepper">
-        <button class="step-btn" onclick="adj('thresh',-100)">−</button>
-        <span class="step-num" id="sv-thresh">1200</span>
-        <button class="step-btn" onclick="adj('thresh',100)">+</button>
-      </div>
+      <div class="su-tag">Threshold (auto)</div>
+      <div class="su-val" id="s-thresh">40</div>
+      <div class="su-sub">= C nodes × weight ÷ 2</div>
     </div>
   </div>
 
@@ -558,18 +553,24 @@ const G = {
 // ════════════════════════════════
 // SETUP
 // ════════════════════════════════
-let _a=6,_b=6,_c=4,_w=20,_th=1200;
+let _a=6,_b=6,_c=4,_w=20,_th=40;
 
 function adj(k,d){
   if(k==='a'){_a=Math.max(1,Math.min(15,_a+d));document.getElementById('sv-a').textContent=_a;document.getElementById('s-a').textContent=_a;}
   if(k==='b'){_b=Math.max(1,Math.min(15,_b+d));document.getElementById('sv-b').textContent=_b;document.getElementById('s-b').textContent=_b;}
-  if(k==='c'){_c=Math.max(1,Math.min(10,_c+d));document.getElementById('sv-c').textContent=_c;document.getElementById('s-c').textContent=_c;}
-  if(k==='w'){_w=Math.max(5,Math.min(100,_w+d));document.getElementById('sv-w').textContent=_w;document.getElementById('s-w').textContent=_w;}
-  if(k==='thresh'){_th=Math.max(100,Math.min(10000,_th+d));document.getElementById('sv-thresh').textContent=_th;document.getElementById('s-thresh').textContent=_th;}
+  if(k==='c'){_c=Math.max(1,Math.min(10,_c+d));document.getElementById('sv-c').textContent=_c;document.getElementById('s-c').textContent=_c;updateAutoThresh();}
+  if(k==='w'){_w=Math.max(5,Math.min(100,_w+d));document.getElementById('sv-w').textContent=_w;document.getElementById('s-w').textContent=_w;updateAutoThresh();}
   document.getElementById('s-total').textContent=_a+_b+_c;
 }
 
+function updateAutoThresh(){
+  const auto = Math.round((_c * _w) / 2);
+  _th = auto;
+  document.getElementById('s-thresh').textContent = auto;
+}
+
 function startSim(){
+  _th = Math.round((_c * _w) / 2);
   G.aC=_a; G.bC=_b; G.cC=_c; G.startWeight=_w; G.threshold=_th;
   G.correct=0; G.wrong=0; G.history=[];
 

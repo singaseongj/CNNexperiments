@@ -216,6 +216,7 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
   font-family:'DM Mono',monospace;font-size:10px;font-weight:500;width:100%}
 .rep-tag.helped{background:var(--grn-s);color:var(--grn);border:1px solid var(--grn-m)}
 .rep-tag.hurt{background:var(--red-s);color:var(--red);border:1px solid var(--red-m)}
+.rep-tag.ty{background:var(--blu-s);color:var(--blu);border:1px solid var(--blu-m)}
 
 /* trust adjust */
 .trust-adj{margin-top:9px;padding-top:9px;border-top:1.5px solid var(--bg3)}
@@ -302,6 +303,13 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 .btn-rst{background:var(--bg3);color:var(--mut);border:1.5px solid var(--bdr2)}
 
 @keyframes fadeUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+.dice-map-hint{
+  font-family:'DM Mono',monospace;font-size:9px;color:var(--mut);
+  background:var(--bg2);border:1px solid var(--bdr);border-radius:5px;
+  padding:3px 7px;margin-top:5px;line-height:1.5;
+}
+.t-btn:disabled{opacity:.3;cursor:not-allowed}
+.w-btn:disabled{opacity:.3;cursor:not-allowed}
 .hidden{display:none!important}
 </style>
 </head>
@@ -462,16 +470,19 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
           <div class="out-lbl-hd">Total Σ</div>
           <div class="sum-big" id="sum-big">—</div>
           <div class="thresh-rule" style="margin-top:6px">
-            Σ &gt; <span>0</span> → 🟢 GREEN<br>
+            Σ ≥ <span>0</span> → 🟢 GREEN<br>
             Σ &lt; <span>0</span> → 🔴 RED<br>
-            Σ = <span>0</span> → ❓ Undecided
           </div>
           <div class="orb" id="orb">❓</div>
           <div class="vbox" id="vbox">Complete all C nodes...</div>
+          <button class="btn btn-grn" id="btn-eval" onclick="evalRound()" disabled style="width:100%;margin-top:10px;border-radius:8px;padding:10px 0;font-size:14px">Evaluate →</button>
         </div>
         <div class="out-sec">
           <div class="out-lbl-hd">C Node Weights</div>
           <div id="weight-panel"></div>
+        </div>
+        <div class="out-sec">
+          <button class="btn" id="btn-autoeval" onclick="autoEval()" disabled style="width:100%;background:var(--amb);color:#fff;border-radius:8px;padding:9px 0;font-size:13px;margin-bottom:8px">Auto-Adjust Weights</button>
         </div>
         <div class="out-sec">
           <div class="out-lbl-hd">History</div>
@@ -483,8 +494,10 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 
   <div class="abar">
     <div class="ab-info" id="ab-info">Select traffic light and click Run.</div>
-    <button class="btn btn-grn" id="btn-eval" onclick="evalRound()" disabled>Evaluate →</button>
+    <button class="btn" id="btn-autorollb" style="background:var(--pur);color:#fff;box-shadow:0 2px 6px rgba(109,40,217,.2)" onclick="autoRollB()">Auto-Roll B</button>
+    <button class="btn" id="btn-autorollc" style="background:var(--grn);color:#fff;box-shadow:0 2px 6px rgba(13,138,78,.2)" onclick="autoRollC()">Auto-Roll C</button>
     <button class="btn btn-red" onclick="newRound()">New Round ↺</button>
+    <button class="btn" style="background:var(--blu);color:#fff" id="btn-autotrust" onclick="autoAdjustTrust()" disabled>Auto-Report &amp; Adjust Trust</button>
     <button class="btn btn-rst" onclick="resetSim()">Reset ⟳</button>
   </div>
 </div>
@@ -503,7 +516,7 @@ const G = {
 
 // A node reliability weights (repeating [5,2,1,4,1])
 // A1(idx0)=always correct, A2(idx1)=always wrong, A3+(idx2+) use weights
-const AW = [5,2,1,4,1,5,2,1,4,1,5,2,1,4,1,5,2,1,4,1];
+const AW = [5,4,3,4,3,5,4,3,4,3,5,4,3,4,3,5,4,3,4,3];
 const DICE = ['⚀','⚁','⚂','⚃','⚄','⚅'];
 
 // Trust weights: each node has [t0, t1] for its two inputs.
@@ -512,6 +525,17 @@ const DICE = ['⚀','⚁','⚂','⚃','⚄','⚅'];
 // diceColour(face, t0, t1): faces 1..t0 = input0's colour, rest = input1's colour
 function faceColour(face, colour0, colour1, t0) {
   return face <= t0 ? colour0 : colour1;
+}
+
+// Multi-input version: trust array splits 6 faces across N inputs
+// trust[0] faces → input 0, next trust[1] faces → input 1, etc.
+function faceColourMulti(face, colours, trust) {
+  var cumulative = 0;
+  for(var k=0;k<trust.length;k++){
+    cumulative += trust[k]||0;
+    if(face <= cumulative) return colours[k]||null;
+  }
+  return colours[colours.length-1]||null;
 }
 
 // ══════════════════════════════════
@@ -527,6 +551,27 @@ function adj(k,d){
 }
 function set(id,v){document.getElementById(id).textContent=v;}
 
+// Build connections: distribute 'total' inputs evenly across 'count' nodes
+// Each node gets floor(total/count) or ceil(total/count) inputs
+// Uses sliding window with wrap so all inputs are covered
+function buildConns(total, count){
+  var conns = [];
+  // Each node gets ~total/count inputs, sliding window with step = total/count
+  var step = total / count;
+  for(var i=0;i<count;i++){
+    var start = Math.round(i * step);
+    var end = Math.round((i+1) * step);
+    if(end<=start) end=start+1;
+    // collect indices, wrap around
+    var conn = [];
+    for(var j=start;j<end;j++) conn.push(j % total);
+    // ensure at least 2
+    if(conn.length<2) conn.push((start+1)%total);
+    conns.push(conn);
+  }
+  return conns;
+}
+
 function startSim(){
   G.aC=_a; G.bC=_b; G.cC=_c; G.startW=_w;
   G.correct=0; G.wrong=0; G.history=[];
@@ -537,8 +582,9 @@ function startSim(){
   G.bNodes = Array.from({length:G.bC},(_,i)=>({
     id:i, name:'B'+(i+1), student:'Student '+(i+1),
     aConn:[i%G.aC,(i+1)%G.aC],
-    trust:[3,3],  // out of 6 total — face 1..trust[0] = first input's colour
-    diceRolled:null, output:null
+    trust:[3,3], pendingTrust:null,
+    weight:1,
+    diceRolled:null, output:null, reported:false
   }));
 
   // C nodes: sliding window over B nodes, trust starts [3,3]
@@ -555,6 +601,8 @@ function startSim(){
   document.getElementById('setup').classList.add('hidden');
   document.getElementById('app').classList.remove('hidden');
   newRound();
+  // btn-autoeval always visible
+  ['btn-autorollb','btn-autorollc','btn-autotrust'].forEach(function(id){var b=document.getElementById(id);if(b)b.disabled=false;});
 }
 
 // ══════════════════════════════════
@@ -566,8 +614,15 @@ function newRound(){
   G.round++; G.phase='rolling';
   G.target = null;
   G.aNodes.forEach(n=>n.colour=null);
-  G.bNodes.forEach(n=>{n.diceRolled=null;n.output=null;});
-  G.cNodes.forEach(n=>{n.diceRolled=null;n.output=null;n.numeric=null;n.value=null;n.reported=false;n.effect=null;n.sugW=undefined;});
+  // Apply pending trust from previous round before resetting
+  G.bNodes.forEach(n=>{
+    if(n.pendingTrust){n.trust=n.pendingTrust.slice();n.pendingTrust=null;}
+    n.diceRolled=null;n.output=null;n.reported=false;
+  });
+  G.cNodes.forEach(n=>{
+    if(n.pendingTrust){n.trust=n.pendingTrust.slice();n.pendingTrust=null;}
+    n.diceRolled=null;n.output=null;n.numeric=null;n.value=null;n.reported=false;n.effect=null;n.sugW=undefined;
+  });
   _light=null;
 
   set('rnd-num', G.round);
@@ -585,6 +640,12 @@ function newRound(){
   document.getElementById('vbox').className='vbox';
   document.getElementById('vbox').textContent='Complete all C nodes...';
   document.getElementById('btn-eval').disabled=true;
+  // Reset all action buttons for new round
+  var btnIds=['btn-autorollb','btn-autorollc','btn-autotrust','btn-autoeval'];
+  btnIds.forEach(function(id){var b=document.getElementById(id);if(b){b.style.display='';b.disabled=false;}});
+  var bae=document.getElementById('btn-autoeval');
+  if(bae){bae.style.display='';bae.disabled=false;}
+  var abt=document.getElementById('btn-autotrust');if(abt)abt.disabled=true;
 
   setPhase('roll','① Select Light → Run');
   setInfo('Select the traffic light colour, then click Run to assign A sensor nodes.');
@@ -616,7 +677,7 @@ function runLight(){
     n.colour=Math.random()*6 < w ? _light : opp; // A3+ biased by weight
   });
   renderA(); renderB(); renderC();
-  setInfo('A nodes assigned! B students: look at your two A inputs, check your trust weights, roll your die.');
+  setInfo('A nodes assigned! B students: check your trust weights (face mapping shown below dice), then roll your die.');
   setPhase('roll','② B & C students roll dice');
 }
 
@@ -641,8 +702,11 @@ function renderA(){
 function renderB(){
   const g=document.getElementById('b-grid'); g.innerHTML='';
   G.bNodes.forEach(function(n,i){
-    const a0=G.aNodes[n.aConn[0]], a1=G.aNodes[n.aConn[1]];
-    const c0=a0?a0.colour:null, c1=a1?a1.colour:null;
+    // Get all connected A nodes
+    var aInputs=n.aConn.map(function(ai){return G.aNodes[ai]?G.aNodes[ai].colour:null;});
+    const c0=aInputs[0]||null, c1=aInputs[1]||null;
+    // Ensure trust array matches aConn length, total=6
+    while(n.trust.length<n.aConn.length) n.trust.push(0);
     const t0=n.trust[0], t1=n.trust[1]; // t0+t1=6
     const set=n.output!==null;
     const showAdj=G.phase==='done';
@@ -676,28 +740,39 @@ function renderB(){
       +'<div class="inp-arrow">→</div>'
       +'<div class="wt-result '+(set?n.output.toLowerCase():'eq')+'">'+(set?n.output:'?')+'</div>';
 
-    var adjHtml='';
-    if(showAdj){
-      adjHtml='<div class="trust-adj">'
-        +'<div class="trust-adj-lbl">Adjust trust (total must = 6). Which A node was more useful?</div>'
-        +'<div class="trust-row">'
-          +'<span class="t-name b">A'+(n.aConn[0]+1)+'</span>'
-          +'<button class="t-btn m" onclick="adjBTrust('+i+',0,-1)">−</button>'
-          +'<span class="t-val" id="bt'+i+'0">'+t0+'</span>'
-          +'<button class="t-btn p" onclick="adjBTrust('+i+',0,+1)">+</button>'
-          +'<div class="t-sep"></div>'
-          +'<span class="t-name b">A'+(n.aConn[1]+1)+'</span>'
-          +'<button class="t-btn m" onclick="adjBTrust('+i+',1,-1)">−</button>'
-          +'<span class="t-val" id="bt'+i+'1">'+t1+'</span>'
-          +'<button class="t-btn p" onclick="adjBTrust('+i+',1,+1)">+</button>'
-        +'</div>'
-      +'</div>';
-    }
+    var adjHtml='<div class="trust-adj">'
+      +'<div class="trust-adj-lbl">Trust weights (total=6) — set for next round:'
+      +'</div>'
+      +'<div class="trust-row">'
+        +'<span class="t-name b">A'+(n.aConn[0]+1)+'</span>'
+        +'<button class="t-btn m" onclick="adjBTrust('+i+',0,-1)">−</button>'
+        +'<span class="t-val">'+t0+(n.pendingTrust&&n.pendingTrust[0]!==t0?' →'+n.pendingTrust[0]:'')+'</span>'
+        +'<button class="t-btn p" onclick="adjBTrust('+i+',0,+1)">+</button>'
+        +'<div class="t-sep"></div>'
+        +'<span class="t-name b">A'+(n.aConn[1]+1)+'</span>'
+        +'<button class="t-btn m" onclick="adjBTrust('+i+',1,-1)">−</button>'
+        +'<span class="t-val">'+t1+(n.pendingTrust&&n.pendingTrust[1]!==t1?' →'+n.pendingTrust[1]:'')+'</span>'
+        +'<button class="t-btn p" onclick="adjBTrust('+i+',1,+1)">+</button>'
+      +'</div>'
+      +'<div class="dice-map-hint">'
+        +'This round: Faces 1–'+t0+' → A'+(n.aConn[0]+1)+' | Faces '+(t0+1)+'–6 → A'+(n.aConn[1]+1)
+        +(n.pendingTrust?'<br>Next round: Faces 1–'+n.pendingTrust[0]+' → A'+(n.aConn[0]+1)+' | Faces '+(n.pendingTrust[0]+1)+'–6 → A'+(n.aConn[1]+1):'')
+      +'</div>'
+      +'<div class="wadj" style="margin-top:6px;padding-top:6px">'
+        +'<span class="wadj-lbl">B weight:</span>'
+        +'<button class="w-btn m" onclick="adjBWeight('+i+',-1)">−</button>'
+        +'<span class="w-val" id="bw'+i+'">'+n.weight+'</span>'
+        +'<button class="w-btn p" onclick="adjBWeight('+i+',+1)">+</button>'
+      +'</div>'
+    +'</div>';
 
     var outHtml='<div class="out-row">'
       +'<div class="out-lbl">My output:</div>'
       +'<div class="out-val '+(set?n.output.toLowerCase():'')+'">'+(set?(n.output==='GREEN'?'🟢 +1':'🔴 −1'):'?')+'</div>'
-      +'</div>';
+      +'</div>'
+      +(!n.reported
+        ?'<button class="rep-btn" onclick="reportB('+i+')" '+(set?'':'disabled')+'>📢 Report to Teacher</button>'
+        :'<div class="rep-tag ty">🙏 Thank you — your signal counted</div>');
 
     const card=document.createElement('div');
     card.className='n-card'+(set?' set':'');
@@ -706,10 +781,10 @@ function renderB(){
       '<div class="n-head">'
         +'<div class="n-id">'+n.name+'</div>'
         +'<div class="n-student">'+n.student+'</div>'
-        +'<div class="n-conn b">A'+(n.aConn[0]+1)+'+A'+(n.aConn[1]+1)+'</div>'
+        +'<div class="n-conn b">'+n.aConn.map(function(ai){return 'A'+(ai+1);}).join('+')+'</div>'
       +'</div>'
       +'<div class="inp-row">'+inputsHtml+'</div>'
-      +'<div class="dice-lbl">Roll die → select face (hints show which colour each face gives):</div>'
+      +'<div class="dice-lbl">Roll die → select face. Letters show which input that face follows:</div>'
       +'<div class="dice-row">'+facesHtml+'</div>'
       +outHtml
       +adjHtml;
@@ -723,9 +798,15 @@ function rollB(bi,face){
   const a0=G.aNodes[n.aConn[0]], a1=G.aNodes[n.aConn[1]];
   const c0=a0?a0.colour:null, c1=a1?a1.colour:null;
   n.diceRolled=face;
-  n.output=faceColour(face,c0,c1,n.trust[0]);
+  var cIC=n.bConn.map(function(bi){return G.bNodes[bi]?G.bNodes[bi].output:null;});
+  n.output=faceColourMulti(face, cIC, n.trust);
   renderB(); renderC();
-  updateProg(); canEval();
+  updateProg(); canEval(); checkAutoTrust();
+}
+
+function reportB(i){
+  G.bNodes[i].reported=true;
+  renderB(); updateProg(); checkAutoTrust();
 }
 
 function adjBTrust(bi,idx,d){
@@ -780,38 +861,43 @@ function renderC(){
       +'<div class="inp-arrow">→</div>'
       +'<div class="wt-result '+(set?n.output.toLowerCase():'eq')+'">'+(set?n.output:'?')+'</div>';
 
-    var formulaHtml='<div class="formula">'
-      +'<div class="f-num '+(set?n.output.toLowerCase():'')+'">'+(set?(n.numeric===1?'+1':'−1'):'?')+'</div>'
-      +'<span>×</span>'
-      +'<span style="color:var(--amb);font-weight:700">'+n.weight+'</span>'
-      +'<span>=</span>'
-      +'<div class="f-val '+(val!==null?(val>0?'pos':'neg'):'')+'">'+( val!==null?val:'?' )+'</div>'
+    var formulaHtml='<div class="out-row">'
+      +'<div class="out-lbl">My output:</div>'
+      +'<div class="out-val '+(set?n.output.toLowerCase():'')+'">'+(set?(n.output==='GREEN'?'🟢 +1':'🔴 −1'):'?')+'</div>'
       +'</div>';
 
     var reportHtml='';
     if(!n.reported){
       reportHtml='<button class="rep-btn" onclick="reportC('+i+')" '+(set?'':'disabled')+'>📢 Report to Teacher</button>';
     } else {
-      reportHtml='<div class="rep-tag '+(n.effect||'')+'">'+( n.effect==='helped'?'✓ Helped':'✗ Hurt' )+'</div>';
+      reportHtml='<div class="rep-tag '+(n.effect||'')+'">'+( '🙏 Thank you — your signal counted' )+'</div>';
     }
 
-    var adjHtml='';
-    if(showAdj){
-      adjHtml='<div class="trust-adj">'
-        +'<div class="trust-adj-lbl">Adjust trust (total=6). Which B node was more useful?</div>'
-        +'<div class="trust-row">'
-          +'<span class="t-name c">B'+(n.bConn[0]+1)+'</span>'
-          +'<button class="t-btn m" onclick="adjCTrust('+i+',0,-1)">−</button>'
-          +'<span class="t-val" id="ct'+i+'0">'+t0+'</span>'
-          +'<button class="t-btn p" onclick="adjCTrust('+i+',0,+1)">+</button>'
-          +'<div class="t-sep"></div>'
-          +'<span class="t-name c">B'+(n.bConn[1]+1)+'</span>'
-          +'<button class="t-btn m" onclick="adjCTrust('+i+',1,-1)">−</button>'
-          +'<span class="t-val" id="ct'+i+'1">'+t1+'</span>'
-          +'<button class="t-btn p" onclick="adjCTrust('+i+',1,+1)">+</button>'
-        +'</div>'
-      +'</div>';
-    }
+    var adjHtml='<div class="trust-adj">'
+      +'<div class="trust-adj-lbl">Trust weights (total=6) — set for next round:'
+      +'</div>'
+      +'<div class="trust-row">'
+        +'<span class="t-name c">B'+(n.bConn[0]+1)+'</span>'
+        +'<button class="t-btn m" onclick="adjCTrust('+i+',0,-1)">−</button>'
+        +'<span class="t-val">'+t0+(n.pendingTrust&&n.pendingTrust[0]!==t0?' →'+n.pendingTrust[0]:'')+'</span>'
+        +'<button class="t-btn p" onclick="adjCTrust('+i+',0,+1)">+</button>'
+        +'<div class="t-sep"></div>'
+        +'<span class="t-name c">B'+(n.bConn[1]+1)+'</span>'
+        +'<button class="t-btn m" onclick="adjCTrust('+i+',1,-1)">−</button>'
+        +'<span class="t-val">'+t1+(n.pendingTrust&&n.pendingTrust[1]!==t1?' →'+n.pendingTrust[1]:'')+'</span>'
+        +'<button class="t-btn p" onclick="adjCTrust('+i+',1,+1)">+</button>'
+      +'</div>'
+      +'<div class="dice-map-hint">'
+        +'This round: Faces 1–'+t0+' → B'+(n.bConn[0]+1)+' | Faces '+(t0+1)+'–6 → B'+(n.bConn[1]+1)
+        +(n.pendingTrust?'<br>Next round: Faces 1–'+n.pendingTrust[0]+' → B'+(n.bConn[0]+1)+' | Faces '+(n.pendingTrust[0]+1)+'–6 → B'+(n.bConn[1]+1):'')
+      +'</div>'
+      +'<div class="wadj" style="margin-top:6px;padding-top:6px">'
+        +'<span class="wadj-lbl">C weight (×multiplier):</span>'
+        +'<button class="w-btn m" onclick="adjCWeight('+i+',-5)">−5</button>'
+        +'<span class="w-val">'+n.weight+'</span>'
+        +'<button class="w-btn p" onclick="adjCWeight('+i+',+5)">+5</button>'
+      +'</div>'
+    +'</div>';
 
     const card=document.createElement('div');
     card.className='n-card'+(n.reported?' reported':set?' set':'');
@@ -820,8 +906,8 @@ function renderC(){
       '<div class="n-head">'
         +'<div class="n-id">'+n.name+'</div>'
         +'<div class="n-student">'+n.student+'</div>'
-        +'<div class="n-conn c">B'+(n.bConn[0]+1)+'+B'+(n.bConn[1]+1)+'</div>'
-        +'<div class="n-wmul">×'+n.weight+'</div>'
+        +'<div class="n-conn c">'+n.bConn.map(function(bi){return 'B'+(bi+1);}).join('+')+'</div>'
+        +'<div class="n-wmul" style="color:'+(n.weight<0?'var(--red)':'var(--amb)')+'">×'+n.weight+'</div>'
       +'</div>'
       +'<div class="inp-row">'+inputsHtml+'</div>'
       +'<div class="dice-lbl">Roll die → select face:</div>'
@@ -839,9 +925,10 @@ function rollC(ci,face){
   const b0=G.bNodes[n.bConn[0]], b1=G.bNodes[n.bConn[1]];
   const c0=b0?b0.output:null, c1=b1?b1.output:null;
   n.diceRolled=face;
-  n.output=faceColour(face,c0,c1,n.trust[0]);
+  var cIC=n.bConn.map(function(bi){return G.bNodes[bi]?G.bNodes[bi].output:null;});
+  n.output=faceColourMulti(face, cIC, n.trust);
   n.numeric=n.output==='GREEN'?1:-1;
-  n.value=n.numeric*n.weight;
+  n.value=n.numeric*n.weight; // weight applied in sum
   renderC(); renderScores(); updateProg(); canEval();
 }
 
@@ -851,20 +938,30 @@ function reportC(i){
   renderC(); renderScores(); updateProg(); canEval();
 }
 
+function adjBWeight(i,d){
+  G.bNodes[i].weight=G.bNodes[i].weight+d; // can go negative
+  renderB();
+}
+
 function adjCTrust(ci,idx,d){
   const n=G.cNodes[ci];
-  const other=1-idx;
-  const nv=Math.min(5,Math.max(1,n.trust[idx]+d));
-  const diff=nv-n.trust[idx];
-  if(n.trust[other]-diff<1||n.trust[other]-diff>5)return;
-  n.trust[idx]=nv;
-  n.trust[other]-=diff;
+  var t=n.pendingTrust?n.pendingTrust.slice():n.trust.slice();
+  const nv=Math.min(6,Math.max(0,t[idx]+d));
+  const diff=nv-t[idx];
+  const other=idx===0?1:idx-1;
+  if(t[other]===undefined||t[other]-diff<0)return;
+  t[idx]=nv; t[other]-=diff;
+  n.pendingTrust=t;
   renderC();
 }
 
 function adjCWeight(i,d){
-  G.cNodes[i].weight=Math.max(0,G.cNodes[i].weight+d);
-  renderScores(); renderWeightPanel();
+  G.cNodes[i].weight=G.cNodes[i].weight+d; // can go negative
+  // recalculate value if already rolled
+  if(G.cNodes[i].numeric!==null){
+    G.cNodes[i].value=G.cNodes[i].numeric*G.cNodes[i].weight;
+  }
+  renderC(); renderScores(); renderWeightPanel();
 }
 
 // ══════════════════════════════════
@@ -874,11 +971,17 @@ function renderScores(){
   var html='';
   G.cNodes.forEach(function(n){
     var cls=n.reported?'csr on':'csr';
-    var vcls=n.value!==null?(n.value>0?'pos':'neg'):'';
+    var displayVal = n.numeric!==null
+      ? (G.round===1 ? n.numeric : n.numeric*n.weight)
+      : null;
+    var vcls=displayVal!==null?(displayVal>0?'pos':'neg'):'';
+    var detail = G.round===1
+      ? 'B'+(n.bConn[0]+1)+'+B'+(n.bConn[1]+1)
+      : 'B'+(n.bConn[0]+1)+'+B'+(n.bConn[1]+1)+' ×'+n.weight;
     html+='<div class="'+cls+'">'
       +'<span class="csr-id">'+n.name+'</span>'
-      +'<span class="csr-d">B'+(n.bConn[0]+1)+'+B'+(n.bConn[1]+1)+' ×'+n.weight+'</span>'
-      +'<span class="csr-v '+vcls+'">'+(n.value!==null?n.value:'—')+'</span>'
+      +'<span class="csr-d">'+detail+'</span>'
+      +'<span class="csr-v '+vcls+'">'+(displayVal!==null?displayVal:'—')+'</span>'
       +'</div>';
   });
   document.getElementById('c-scores').innerHTML=html;
@@ -900,42 +1003,170 @@ function renderWeightPanel(){
       +'<span class="wp-num">'+n.weight+'</span>'
       +sugHtml
       +'<div class="wp-btns">'
-        +'<button class="wp-b m" onclick="adjCWeight('+i+',-10)">−</button>'
-        +'<button class="wp-b p" onclick="adjCWeight('+i+',+10)">+</button>'
+        +'<button class="wp-b m" onclick="adjCWeight('+i+',-5)">−5</button>'
+        +'<button class="wp-b p" onclick="adjCWeight('+i+',+5)">+5</button>'
       +'</div>'
       +'</div>';
   });
   document.getElementById('weight-panel').innerHTML=html;
 }
 
+function checkAutoTrust(){
+  // Enable once all B dice are rolled (whether reported or not)
+  var allBRolled=G.bNodes.every(function(n){return n.output!==null;});
+  var anyUnreported=G.bNodes.some(function(n){return !n.reported;})
+    ||G.cNodes.some(function(n){return !n.reported;});
+  var btn=document.getElementById('btn-autotrust');
+  if(btn) btn.disabled=!(allBRolled&&anyUnreported);
+}
+
 function canEval(){
-  document.getElementById('btn-eval').disabled=!G.cNodes.every(function(n){return n.reported;});
+  var allDone=G.cNodes.every(function(n){return n.reported;});
+  document.getElementById('btn-eval').disabled=!allDone;
+  var ae=document.getElementById('btn-autoeval');
+  if(ae){ae.disabled=!allDone;if(G.round>1)ae.style.display='';}
+}
+
+function autoRollC(){
+  if(G.phase==='done')return;
+  var btn=document.getElementById('btn-autorollc');if(btn)btn.disabled=true;
+  G.cNodes.forEach(function(n,i){
+    if(n.output!==null)return;
+    var face=Math.floor(Math.random()*6)+1;
+    var b0=G.bNodes[n.bConn[0]], b1=G.bNodes[n.bConn[1]];
+    var c0=b0?b0.output:null, c1=b1?b1.output:null;
+    n.diceRolled=face;
+    n.output=faceColour(face,c0,c1,n.trust[0]);
+    n.numeric=n.output==='GREEN'?1:-1;
+    n.value=n.numeric*n.weight;
+    n.reported=true;
+    n.effect='reported';
+  });
+  renderC(); renderScores(); renderWeightPanel(); updateProg(); canEval();
+  document.getElementById('btn-eval').disabled=false;
+  setInfo('All C nodes rolled and reported! Click Evaluate or Auto-Adjust Weights.');
+}
+
+function autoRollB(){
+  if(G.phase==='done')return;
+  var btn=document.getElementById('btn-autorollb');if(btn)btn.disabled=true;
+  G.bNodes.forEach(function(n,i){
+    if(n.output!==null)return;
+    var face=Math.floor(Math.random()*6)+1;
+    var a0=G.aNodes[n.aConn[0]], a1=G.aNodes[n.aConn[1]];
+    var c0=a0?a0.colour:null, c1=a1?a1.colour:null;
+    n.diceRolled=face;
+    n.output=faceColour(face,c0,c1,n.trust[0]);
+  });
+  renderB(); renderC(); updateProg(); canEval();
+  setInfo('All B nodes rolled! C students: check your B inputs, roll your die.');
+}
+
+function autoAdjustTrust(){
+  if(!G.target) return;
+  var btn=document.getElementById('btn-autotrust'); if(btn) btn.disabled=true;
+
+  // 1. Auto-roll and report any unreported B nodes
+  G.bNodes.forEach(function(n){
+    if(n.reported) return;
+    if(n.output===null){
+      var face=Math.floor(Math.random()*6)+1;
+      var bIC=n.aConn.map(function(ai){return G.aNodes[ai]?G.aNodes[ai].colour:null;});
+      n.diceRolled=face;
+      n.output=faceColourMulti(face, bIC, n.trust);
+    }
+    n.reported=true;
+  });
+
+  // 2. Auto-roll and report any unreported C nodes
+  G.cNodes.forEach(function(n){
+    if(n.reported) return;
+    if(n.output===null){
+      var face=Math.floor(Math.random()*6)+1;
+      var cIC2=n.bConn.map(function(bi){return G.bNodes[bi]?G.bNodes[bi].output:null;});
+      n.diceRolled=face;
+      n.output=faceColourMulti(face, cIC2, n.trust);
+      n.numeric=n.output==='GREEN'?1:-1;
+      n.value=n.numeric*n.weight;
+    }
+    n.reported=true; n.effect='reported';
+  });
+
+  // 3. Save pending trust for NEXT round (based on which inputs matched light)
+  G.bNodes.forEach(function(n){
+    var pending=n.trust.slice();
+    var bestIdx=-1, bestMatch=false;
+    n.aConn.forEach(function(ai,j){
+      var col=G.aNodes[ai]?G.aNodes[ai].colour:null;
+      if(col===G.target && !bestMatch){ bestIdx=j; bestMatch=true; }
+    });
+    if(bestIdx>=0){
+      var otherIdx=bestIdx===0?1:0;
+      if(pending[bestIdx]<6 && pending[otherIdx]>0){ pending[bestIdx]++; pending[otherIdx]--; }
+    }
+    n.pendingTrust=pending;
+  });
+  G.cNodes.forEach(function(n){
+    var pending=n.trust.slice();
+    // Find which input matched the target and shift trust toward it
+    var bestIdx=-1, bestMatch=false;
+    n.bConn.forEach(function(bi,j){
+      var col=G.bNodes[bi]?G.bNodes[bi].output:null;
+      if(col===G.target && !bestMatch){ bestIdx=j; bestMatch=true; }
+    });
+    if(bestIdx>=0){
+      var otherIdx=bestIdx===0?1:0;
+      if(pending[bestIdx]<6 && pending[otherIdx]>0){ pending[bestIdx]++; pending[otherIdx]--; }
+    }
+    n.pendingTrust=pending;
+  });
+
+  renderB(); renderC(); renderScores(); updateProg(); canEval();
+  setInfo('All nodes reported. Trust updated for next round. Click Evaluate when ready.');
+}
+
+function autoEval(){
+  // Auto-Adjust Weights: set C weights based on this round's outputs vs target
+  // Does NOT evaluate — just saves weights for next round
+  var bae=document.getElementById('btn-autoeval');if(bae)bae.disabled=true;
+  if(!G.target) return;
+  G.cNodes.forEach(function(n){
+    if(n.output){
+      n.weight = n.output===G.target ? n.weight+5 : n.weight-5;
+      n.sugW = n.weight;
+    }
+  });
+  renderWeightPanel();
+  setInfo('C weights adjusted for next round: +5 if matched light, −5 if not.');
 }
 
 function evalRound(){
   G.phase='done';
-  var sum=G.cNodes.reduce(function(a,n){return a+(n.value||0);},0);
-  var pred=sum>0?'GREEN':sum<0?'RED':'UNDECIDED';
+  var bevl=document.getElementById('btn-eval');if(bevl)bevl.disabled=true;
+  // Round 1: raw sum (+1/-1 only). Round 2+: weighted sum
+  var sum=G.cNodes.reduce(function(a,n){
+    if(!n.numeric) return a;
+    return a + (G.round===1 ? n.numeric : n.numeric*n.weight);
+  },0);
+  var pred=sum>=0?'GREEN':'RED';
   var ok=pred===G.target;
 
   G.cNodes.forEach(function(n){
-    if(!n.value){n.effect='neutral';return;}
-    n.effect=ok?(n.value>0?'helped':'hurt'):(n.value>0?'hurt':'helped');
+    // Every node that reported gets acknowledged — even wrong ones contribute signal
+    n.effect='reported';
     n.sugW=n.output===G.target?n.weight+10:n.weight-10;
   });
 
   var sb=document.getElementById('sum-big');
   sb.textContent=sum;
-  sb.className='sum-big '+(sum>0?'pos':sum<0?'neg':'zero');
+  sb.className='sum-big '+(sum>=0?'pos':'neg');
 
   var orb=document.getElementById('orb');
-  orb.className='orb '+(pred==='GREEN'?'gn':pred==='RED'?'rd':'');
+  orb.className='orb '+(pred==='GREEN'?'gn':'rd');
   orb.textContent=pred==='GREEN'?'🟢':pred==='RED'?'🔴':'❓';
 
   var vb=document.getElementById('vbox');
-  if(pred==='UNDECIDED'){
-    vb.className='vbox'; vb.textContent='⊘ Undecided — Σ = 0';
-  } else if(ok){
+  if(ok){
     vb.className='vbox ok'; vb.textContent='✓ CORRECT! Σ = '+sum+' → '+pred; G.correct++;
   } else {
     vb.className='vbox bad'; vb.textContent='✗ WRONG! Σ = '+sum+' → '+pred+'. Adjust weights!'; G.wrong++;
@@ -961,7 +1192,7 @@ function renderHist(){
       +'<span class="h-r">#'+h.r+'</span>'
       +'<span class="h-t" style="color:'+(h.t==='GREEN'?'var(--grn)':'var(--red)')+'">'+h.t+'</span>'
       +'<span style="color:var(--mut2);font-size:9px">→</span>'
-      +'<span class="h-g" style="color:'+(h.p==='GREEN'?'var(--grn)':h.p==='RED'?'var(--red)':'var(--amb)')+'">'+h.p+'</span>'
+      +'<span class="h-g" style="color:'+(h.p==='GREEN'?'var(--grn)':'var(--red)')+'">'+h.p+'</span>'
       +'<span class="h-s">Σ='+h.s+'</span>'
       +'<span class="h-res '+(h.ok?'c':'w')+'">'+(h.ok?'✓':'✗')+'</span>'
       +'</div>';
@@ -973,9 +1204,9 @@ function renderHist(){
 // HELPERS
 // ══════════════════════════════════
 function updateProg(){
-  var bs=G.bNodes.filter(function(n){return n.output!==null;}).length;
+  var bs=G.bNodes.filter(function(n){return n.reported;}).length;
   var cs=G.cNodes.filter(function(n){return n.reported;}).length;
-  set('bprog-txt',bs+'/'+G.bC+' set');
+  set('bprog-txt',bs+'/'+G.bC+' reported');
   document.getElementById('bprog-bar').style.width=(bs/G.bC*100)+'%';
   set('cprog-txt',cs+'/'+G.cC+' reported');
   document.getElementById('cprog-bar').style.width=(cs/G.cC*100)+'%';

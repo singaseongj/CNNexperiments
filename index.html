@@ -398,7 +398,7 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
     <div class="sf-title">How each round works</div>
     <div class="sf-row">
       <div class="sf-num a">A</div>
-      <div class="sf-label"><strong>Sensor Layer (auto):</strong> Teacher picks RED or GREEN and clicks Run. Each A node has a fixed reliability weight (1–5) — higher weight means more likely to reflect the real traffic light colour. Round 1: A1 always GREEN, A2 always RED.</div>
+      <div class="sf-label"><strong>Sensor Layer (auto):</strong> Teacher picks RED or GREEN and clicks Run. A1 and A2 always match the traffic light perfectly. A3+ have fixed weights (1–5) — higher weight means more likely to match the light.</div>
     </div>
     <div class="sf-row">
       <div class="sf-num b">B</div>
@@ -457,9 +457,8 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
           </div>
           <button class="run-btn" id="run-btn" onclick="runLight()" disabled>▶ Run</button>
         </div>
-        <div class="dice-hint">Each A node biased by its weight (1–5).<br>
-          A1(w=5)≈83% · A2(w=2)≈33% · A3(w=1)≈17% · A4(w=4)≈67% · A5(w=1)≈17%<br>
-          Round 1: A1=🟢 GREEN, A2=🔴 RED (forced)</div>
+        <div class="dice-hint">A1 & A2 always match the traffic light (perfect sensors).<br>
+          A3+ biased by weight: w=5→83% · w=4→67% · w=2→33% · w=1→17%</div>
       </div>
       <div class="col-body"><div class="node-grid" id="a-grid"></div></div>
     </div>
@@ -674,20 +673,8 @@ function newRound(){
   document.getElementById('verdict-box').textContent='Complete all C nodes to evaluate...';
   document.getElementById('btn-eval').disabled=true;
 
-  if(G.round===1){
-    // Round 1 is always GREEN — auto-select and just show Run button
-    _selectedLight=null;
-    document.getElementById('tl-red').className='tl-bulb tl-red';
-    document.getElementById('tl-green').className='tl-bulb tl-green';
-    document.getElementById('tl-label').textContent='Round 1 → AUTO';
-    document.getElementById('tl-label').className='tl-label green';
-    document.getElementById('run-btn').disabled=false;
-    setPhase('roll','① Round 1: Click Run (auto GREEN)');
-    setInfo('Round 1 is always GREEN. A1=GREEN, A2=RED forced. Click Run to assign the rest.');
-  } else {
-    setPhase('roll','① Select Light → Run A nodes');
-    setInfo('Select RED or GREEN traffic light, then click Run to assign A sensor nodes.');
-  }
+  setPhase('roll','① Select Light → Run A nodes');
+  setInfo('Select RED or GREEN traffic light. A1 & A2 always match it. Click Run to assign all A nodes.');
   renderA();renderB();renderC();renderCScores();updateProgress();renderWeightPanel();
 }
 
@@ -711,35 +698,17 @@ function selectLight(colour){
 const A_WEIGHTS = [5,2,1,4,1,5,2,1,4,1,5,2,1,4,1,5,2,1,4,1];
 
 function runLight(){
-  if(G.round!==1 && !_selectedLight)return;
-  let g;
-  if(G.round===1){
-    // Round 1: A1 forced GREEN, A2 forced RED, rest biased toward GREEN
-    // Traffic light is automatically GREEN (matches original JS)
-    _selectedLight='GREEN';
-    G.target='GREEN';
-    document.getElementById('tl-red').className='tl-bulb tl-red';
-    document.getElementById('tl-green').className='tl-bulb tl-green active';
-    document.getElementById('tl-label').textContent='GREEN';
-    document.getElementById('tl-label').className='tl-label green';
-    document.getElementById('target-bulb').className='target-bulb green';
-    document.getElementById('target-name').textContent='GREEN';
-    G.aNodes.forEach((n,i)=>{
-      if(i===0){ n.colour='GREEN'; return; }
-      if(i===1){ n.colour='RED'; return; }
-      const w=A_WEIGHTS[i]||3;
-      n.colour=Math.random()*6 < w ? 'GREEN' : 'RED';
-    });
-  } else {
-    // Round 2+: biased toward selected traffic light colour
-    G.aNodes.forEach((n,i)=>{
-      const w=A_WEIGHTS[i]||3;
-      n.colour=Math.random()*6 < w ? _selectedLight : (_selectedLight==='GREEN'?'RED':'GREEN');
-    });
-  }
+  if(!_selectedLight)return;
+  G.aNodes.forEach((n,i)=>{
+    // A1 and A2 are always perfect — always match the traffic light
+    if(i===0||i===1){ n.colour=_selectedLight; return; }
+    // A3+ use weight-based probability biased toward selected colour
+    const w=A_WEIGHTS[i]||3;
+    n.colour=Math.random()*6 < w ? _selectedLight : (_selectedLight==='GREEN'?'RED':'GREEN');
+  });
   renderA();
   renderB();
-  setInfo('A nodes assigned! B students: look at your connected A colours, roll your die, select a face, choose GREEN or RED.');
+  setInfo('A nodes assigned! A1 & A2 always match the light. B students: look at your A colours, roll your die, select a face.');
   setPhase('roll','② B students roll dice');
 }
 
@@ -752,11 +721,12 @@ function renderA(){
     d.id=`ac-${i}`;d.className='a-card '+colClass;
     d.style.animationDelay=(i*.02)+'s';
     const aw=A_WEIGHTS[i]||3;
+    const isPerfect=i===0||i===1;
     d.innerHTML=`
       <div class="a-name">${n.name}</div>
       <div class="a-colour-word ${assigned?n.colour.toLowerCase():'pending'}">${assigned?n.colour:'???'}</div>
       <div class="a-colour-badge">${assigned?(n.colour==='GREEN'?'🟢':'🔴'):'–'}</div>
-      <div style="font-family:'DM Mono',monospace;font-size:8px;color:var(--muted2);margin-top:2px">w=${aw} (${Math.round(aw/6*100)}%)</div>
+      <div style="font-family:'DM Mono',monospace;font-size:8px;color:var(--muted2);margin-top:2px">${isPerfect?'★ perfect':'w='+aw+' ('+Math.round(aw/6*100)+'%)'}</div>
     `;
     g.appendChild(d);
   });

@@ -98,7 +98,7 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 .col{display:flex;flex-direction:column;background:var(--bg);min-height:0;overflow:hidden}
 .col.out-col{background:var(--bg2)}
 .col-hd{flex-shrink:0;padding:12px 14px 10px;background:var(--sur);border-bottom:1.5px solid var(--bdr);
-  overflow-y:auto;max-height:50%;scrollbar-width:thin;scrollbar-color:var(--bdr2) transparent}
+  overflow-y:auto;max-height:40%;scrollbar-width:thin;scrollbar-color:var(--bdr2) transparent}
 .col-hd::-webkit-scrollbar{width:4px}
 .col-hd::-webkit-scrollbar-thumb{background:var(--bdr2);border-radius:999px}
 .out-col .col-hd{background:var(--bg2)}
@@ -152,7 +152,7 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 /* ── B / C CARDS ── */
 .node-list{display:flex;flex-direction:column;gap:8px}
 .n-card{background:var(--sur);border:1.5px solid var(--bdr);border-radius:10px;
-  padding:12px;box-shadow:var(--sh0);position:relative;transition:all .2s;animation:fadeUp .2s ease both}
+  padding:12px;box-shadow:var(--sh0);position:relative;transition:all .2s;animation:fadeUp .2s ease both;overflow:visible}
 .n-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--bdr);border-radius:3px 0 0 3px;transition:background .2s}
 .n-card.set{border-color:var(--pur-m)}.n-card.set::before{background:var(--pur)}
 .n-card.reported{border-color:var(--grn-m)}.n-card.reported::before{background:var(--grn)}
@@ -185,7 +185,7 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 .dice-row{display:flex;gap:4px;margin-bottom:8px;flex-wrap:wrap}
 .d-face{width:32px;height:32px;border-radius:7px;border:1.5px solid var(--bdr2);
   background:var(--sur);cursor:pointer;display:flex;align-items:center;justify-content:center;
-  font-size:18px;transition:all .15s;position:relative}
+  font-size:18px;transition:all .15s;position:relative;z-index:1;user-select:none}
 .d-face:hover{border-color:var(--blu-m);background:var(--blu-s)}
 .d-face.sg{border-color:var(--grn);background:var(--grn-s);box-shadow:0 0 0 2px var(--grn-m)}
 .d-face.sr{border-color:var(--red);background:var(--red-s);box-shadow:0 0 0 2px var(--red-m)}
@@ -795,11 +795,9 @@ function renderB(){
 function rollB(bi,face){
   if(G.phase==='done')return;
   const n=G.bNodes[bi];
-  const a0=G.aNodes[n.aConn[0]], a1=G.aNodes[n.aConn[1]];
-  const c0=a0?a0.colour:null, c1=a1?a1.colour:null;
+  var aInputCols=n.aConn.map(function(ai){return G.aNodes[ai]?G.aNodes[ai].colour:null;});
   n.diceRolled=face;
-  var cIC=n.bConn.map(function(bi){return G.bNodes[bi]?G.bNodes[bi].output:null;});
-  n.output=faceColourMulti(face, cIC, n.trust);
+  n.output=faceColourMulti(face, aInputCols, n.trust);
   renderB(); renderC();
   updateProg(); canEval(); checkAutoTrust();
 }

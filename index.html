@@ -92,6 +92,15 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
   background:var(--bg2);border:1.5px solid var(--bdr2);border-radius:999px;
   padding:4px 12px 4px 8px;font-family:'DM Mono',monospace;font-size:11px;color:var(--mut);transition:all .18s}
 .back-btn:hover{background:var(--bg3);color:var(--txt)}
+.layer-a-banner{
+  flex-shrink:0;
+  height:34px;
+  display:flex;
+  align-items:center;
+  padding:0 14px;
+  background:var(--sur);
+  border-bottom:1.5px solid var(--bdr);
+}
 
 /* ── COLUMNS ── */
 .cols{flex:1;display:grid;grid-template-columns:1fr 1fr 1fr 260px;gap:1px;background:var(--bdr);min-height:0}
@@ -408,11 +417,14 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
     </div>
   </div>
 
+  <div class="layer-a-banner">
+    <div class="col-tag a">● Layer A — Sensors</div>
+  </div>
+
   <div class="cols">
     <!-- COL A -->
     <div class="col col-a">
       <div class="col-hd">
-        <div class="col-tag a">● Layer A — Sensors</div>
         <div class="col-title">Sensor Nodes</div>
         <div class="col-sub">Auto-assigned when teacher clicks Run.</div>
         <div class="tl-wrap">

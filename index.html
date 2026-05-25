@@ -56,6 +56,8 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 .sf-num.c{background:var(--grn-s);color:var(--grn)}
 .sf-num.d{background:var(--amb-s);color:var(--amb)}
 .sf-lbl{color:var(--mut);flex:1}.sf-lbl strong{color:var(--txt)}
+.su-warn{width:100%;max-width:760px;background:var(--amb-s);border:1.5px solid #F59E0B;color:var(--amb);
+  border-radius:10px;padding:10px 12px;font-family:'DM Mono',monospace;font-size:11px;line-height:1.5}
 .btn-start{background:var(--blu);color:#fff;border:none;border-radius:12px;padding:14px 48px;
   font-family:'Fraunces',serif;font-size:16px;font-weight:700;cursor:pointer;
   box-shadow:0 4px 20px rgba(27,94,255,.35);transition:opacity .2s,transform .15s}
@@ -390,6 +392,7 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
     <div class="sf-row"><div class="sf-num d">∑</div>
       <div class="sf-lbl"><strong>Decision:</strong> Sum all C values. Σ &gt; 0 → GREEN · Σ &lt; 0 → RED · Σ = 0 → Undecided.</div></div>
   </div>
+  <div id="setup-warn" class="su-warn hidden"></div>
   <button class="btn-start" onclick="startSim()">Begin Class →</button>
 </div>
 
@@ -561,28 +564,57 @@ function adj(k,d){
   if(k==='c'){_c=Math.max(1,Math.min(10,_c+d));set('sc-v',_c);set('sc-n',_c);}
   if(k==='w'){_w=Math.max(5,Math.min(100,_w+d));set('sw-v',_w);set('sw-n',_w);}
   set('stot-v',_b+_c);
+  updateSetupWarning();
 }
 function set(id,v){document.getElementById(id).textContent=v;}
 
-// Build connections: distribute 'total' inputs evenly across 'count' nodes
-// Each node gets floor(total/count) or ceil(total/count) inputs
-// Uses sliding window with wrap so all inputs are covered
+// Build fixed 2-input connections with wraparound.
+// Guarantees each destination node has 2 inputs.
+// Guarantees all source indices are covered when count*2 >= total.
 function buildConns(total, count){
+  var maxPerNode = 2;
   var conns = [];
-  // Each node gets ~total/count inputs, sliding window with step = total/count
-  var step = total / count;
-  for(var i=0;i<count;i++){
-    var start = Math.round(i * step);
-    var end = Math.round((i+1) * step);
-    if(end<=start) end=start+1;
-    // collect indices, wrap around
-    var conn = [];
-    for(var j=start;j<end;j++) conn.push(j % total);
-    // ensure at least 2
-    if(conn.length<2) conn.push((start+1)%total);
-    conns.push(conn);
+  if(total<=0 || count<=0) return conns;
+
+  // First pass: cover every source at least once (when capacity allows).
+  var cap = count * maxPerNode;
+  var cursor = 0;
+  for(var i=0;i<count;i++) conns.push([]);
+
+  if(cap >= total){
+    for(var s=0;s<total;s++){
+      while(conns[cursor].length >= maxPerNode) cursor = (cursor + 1) % count;
+      conns[cursor].push(s);
+      cursor = (cursor + 1) % count;
+    }
+  }
+
+  // Second pass: fill all nodes to exactly 2 inputs, with wraparound.
+  for(var j=0;j<count;j++){
+    while(conns[j].length < maxPerNode){
+      conns[j].push((j + conns[j].length) % total);
+    }
   }
   return conns;
+}
+
+function updateSetupWarning(){
+  var el = document.getElementById('setup-warn');
+  if(!el) return;
+  var warnings = [];
+  if(_a > _b * 2){
+    warnings.push('Layer B capacity warning: '+_a+' A nodes cannot all be covered by '+_b+' B students at 2 inputs each (max coverage '+(_b*2)+').');
+  }
+  if(_b > _c * 2){
+    warnings.push('Layer C capacity warning: '+_b+' B nodes cannot all be covered by '+_c+' C students at 2 inputs each (max coverage '+(_c*2)+').');
+  }
+  if(warnings.length){
+    el.classList.remove('hidden');
+    el.innerHTML = warnings.join('<br>');
+  }else{
+    el.classList.add('hidden');
+    el.textContent = '';
+  }
 }
 
 function startSim(){
@@ -591,19 +623,22 @@ function startSim(){
 
   G.aNodes = Array.from({length:G.aC},(_,i)=>({id:i, name:'A'+(i+1), colour:null}));
 
-  // B nodes: sliding window over A nodes, trust starts [3,3]
+  var bConns = buildConns(G.aC, G.bC);
+  var cConns = buildConns(G.bC, G.cC);
+
+  // B nodes: 2 inputs over A nodes, trust starts [3,3]
   G.bNodes = Array.from({length:G.bC},(_,i)=>({
     id:i, name:'B'+(i+1), student:'Student '+(i+1),
-    aConn:[i%G.aC,(i+1)%G.aC],
+    aConn:bConns[i],
     trust:[3,3], pendingTrust:null,
     weight:1,
     diceRolled:null, output:null, reported:false
   }));
 
-  // C nodes: sliding window over B nodes, trust starts [3,3]
+  // C nodes: 2 inputs over B nodes, trust starts [3,3]
   G.cNodes = Array.from({length:G.cC},(_,i)=>({
     id:i, name:'C'+(i+1), student:'Student '+(G.bC+i+1),
-    bConn:[i%G.bC,(i+1)%G.bC],
+    bConn:cConns[i],
     trust:[3,3],
     weight:G.startW,
     diceRolled:null, output:null,
@@ -617,6 +652,8 @@ function startSim(){
   // btn-autoeval always visible
   ['btn-autorollb','btn-autorollc','btn-autotrust'].forEach(function(id){var b=document.getElementById(id);if(b)b.disabled=false;});
 }
+
+updateSetupWarning();
 
 // ══════════════════════════════════
 // ROUND

@@ -102,6 +102,7 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 .col-hd::-webkit-scrollbar{width:4px}
 .col-hd::-webkit-scrollbar-thumb{background:var(--bdr2);border-radius:999px}
 .out-col .col-hd{background:var(--bg2)}
+.col-a .col-hd{max-height:20%}
 .col-tag{display:inline-flex;align-items:center;gap:5px;border-radius:999px;padding:3px 9px;
   font-family:'DM Mono',monospace;font-size:9px;letter-spacing:.12em;text-transform:uppercase;margin-bottom:5px}
 .col-tag.a{background:var(--blu-s);color:var(--blu);border:1px solid var(--blu-m)}
@@ -152,26 +153,26 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 /* ── B / C CARDS ── */
 .node-list{display:flex;flex-direction:column;gap:8px}
 .n-card{background:var(--sur);border:1.5px solid var(--bdr);border-radius:10px;
-  padding:12px;box-shadow:var(--sh0);position:relative;transition:all .2s;animation:fadeUp .2s ease both;overflow:visible}
+  padding:14px;box-shadow:var(--sh0);position:relative;transition:all .2s;animation:fadeUp .2s ease both;overflow:visible}
 .n-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--bdr);border-radius:3px 0 0 3px;transition:background .2s}
 .n-card.set{border-color:var(--pur-m)}.n-card.set::before{background:var(--pur)}
 .n-card.reported{border-color:var(--grn-m)}.n-card.reported::before{background:var(--grn)}
 .n-head{display:flex;align-items:center;gap:6px;margin-bottom:8px}
-.n-id{font-size:13px;font-weight:900;letter-spacing:-.02em}
-.n-student{font-family:'DM Mono',monospace;font-size:10px;color:var(--mut)}
-.n-conn{margin-left:auto;border-radius:999px;font-family:'DM Mono',monospace;font-size:9px;padding:2px 7px}
+.n-id{font-size:15px;font-weight:900;letter-spacing:-.02em}
+.n-student{font-family:'DM Mono',monospace;font-size:11px;color:var(--mut)}
+.n-conn{margin-left:auto;border-radius:999px;font-family:'DM Mono',monospace;font-size:10px;padding:3px 8px}
 .n-conn.b{background:var(--blu-s);border:1px solid var(--blu-m);color:var(--blu)}
 .n-conn.c{background:var(--pur-s);border:1px solid var(--pur-m);color:var(--pur)}
 .n-wmul{background:var(--amb-s);border:1px solid #FBBF24;color:var(--amb);
   border-radius:999px;font-family:'DM Mono',monospace;font-size:9px;padding:2px 6px}
 
 /* inputs */
-.inp-row{display:flex;align-items:center;gap:5px;margin-bottom:8px;flex-wrap:wrap}
+.inp-row{display:flex;align-items:center;gap:6px;margin-bottom:9px;flex-wrap:wrap}
 .inp-cell{display:flex;flex-direction:column;align-items:center;gap:2px}
-.inp-lbl{font-family:'DM Mono',monospace;font-size:8px;color:var(--mut2)}
-.inp-trust{font-family:'DM Mono',monospace;font-size:8px;color:var(--amb)}
+.inp-lbl{font-family:'DM Mono',monospace;font-size:9px;color:var(--mut2)}
+.inp-trust{font-family:'DM Mono',monospace;font-size:9px;color:var(--amb)}
 .rg-badge{display:inline-flex;align-items:center;justify-content:center;
-  width:36px;height:20px;border-radius:5px;font-family:'DM Mono',monospace;font-size:9px;font-weight:700;
+  width:40px;height:22px;border-radius:5px;font-family:'DM Mono',monospace;font-size:10px;font-weight:700;
   background:var(--bg2);color:var(--mut2);border:1px solid var(--bdr);transition:all .2s}
 .rg-badge.green{background:var(--grn);color:#fff;border-color:var(--grn)}
 .rg-badge.red{background:var(--red);color:#fff;border-color:var(--red)}
@@ -409,7 +410,7 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 
   <div class="cols">
     <!-- COL A -->
-    <div class="col">
+    <div class="col col-a">
       <div class="col-hd">
         <div class="col-tag a">● Layer A — Sensors</div>
         <div class="col-title">Sensor Nodes</div>

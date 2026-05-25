@@ -58,6 +58,14 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 .sf-lbl{color:var(--mut);flex:1}.sf-lbl strong{color:var(--txt)}
 .su-warn{width:100%;max-width:760px;background:var(--amb-s);border:1.5px solid #F59E0B;color:var(--amb);
   border-radius:10px;padding:10px 12px;font-family:'DM Mono',monospace;font-size:11px;line-height:1.5}
+.su-net{
+  width:100%;max-width:760px;background:var(--sur);border:1.5px solid var(--bdr);border-radius:12px;
+  padding:12px;box-shadow:var(--sh0);
+}
+.su-net-hd{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
+.su-net-title{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--mut)}
+.su-net-sub{font-family:'DM Mono',monospace;font-size:10px;color:var(--mut2)}
+#setup-net{width:100%;height:260px;display:block;background:var(--bg);border:1px solid var(--bg3);border-radius:8px}
 .btn-start{background:var(--blu);color:#fff;border:none;border-radius:12px;padding:14px 48px;
   font-family:'Fraunces',serif;font-size:16px;font-weight:700;cursor:pointer;
   box-shadow:0 4px 20px rgba(27,94,255,.35);transition:opacity .2s,transform .15s}
@@ -406,6 +414,13 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
       <div class="sf-lbl"><strong>Decision:</strong> Sum all C values. Σ &gt; 0 → GREEN · Σ &lt; 0 → RED · Σ = 0 → Undecided.</div></div>
   </div>
   <div id="setup-warn" class="su-warn hidden"></div>
+  <div class="su-net">
+    <div class="su-net-hd">
+      <div class="su-net-title">Live Node Connection Infograph</div>
+      <div class="su-net-sub" id="setup-net-meta">A:12 · B:10 · C:6</div>
+    </div>
+    <svg id="setup-net" viewBox="0 0 760 260" preserveAspectRatio="xMidYMid meet" aria-label="Node connection graph"></svg>
+  </div>
   <button class="btn-start" onclick="startSim()">Begin Class →</button>
 </div>
 
@@ -581,6 +596,7 @@ function adj(k,d){
   if(k==='w'){_w=Math.max(5,Math.min(100,_w+d));set('sw-v',_w);set('sw-n',_w);}
   set('stot-v',_b+_c);
   updateSetupWarning();
+  renderSetupGraph();
 }
 function set(id,v){document.getElementById(id).textContent=v;}
 
@@ -633,6 +649,50 @@ function updateSetupWarning(){
   }
 }
 
+function renderSetupGraph(){
+  var svg = document.getElementById('setup-net');
+  var meta = document.getElementById('setup-net-meta');
+  if(!svg || !meta) return;
+  meta.textContent = 'A:'+_a+' · B:'+_b+' · C:'+_c;
+
+  var W = 760, H = 260;
+  var yA = 38, yB = 105, yC = 172, yOut = 234;
+  var r = 13, outR = 17;
+  var colA = '#9FC5FF', colB = '#E7BED8', colC = '#FFE39A', colOut = '#B7E3B5', stroke = '#4A4A4A';
+
+  function xs(count){
+    var arr = [];
+    for(var i=0;i<count;i++) arr.push(((i+1)/(count+1))*W);
+    return arr;
+  }
+  function line(x1,y1,x2,y2,w,op){
+    return '<line x1="'+x1.toFixed(2)+'" y1="'+y1+'" x2="'+x2.toFixed(2)+'" y2="'+y2+'" stroke="'+stroke+'" stroke-width="'+w+'" opacity="'+op+'" />';
+  }
+  function node(x,y,fill,label,fs){
+    return '<g><circle cx="'+x.toFixed(2)+'" cy="'+y+'" r="'+r+'" fill="'+fill+'" stroke="'+stroke+'" stroke-width="1.2"/>'
+      +'<text x="'+x.toFixed(2)+'" y="'+(y+4)+'" text-anchor="middle" font-family="DM Mono,monospace" font-size="'+fs+'" font-weight="700" fill="#111">'+label+'</text></g>';
+  }
+
+  var ax = xs(_a), bx = xs(_b), cx = xs(_c), outX = W/2;
+  var bConns = buildConns(_a,_b);
+  var cConns = buildConns(_b,_c);
+  var g = [];
+  g.push('<rect x="1" y="1" width="'+(W-2)+'" height="'+(H-2)+'" rx="8" ry="8" fill="transparent" stroke="#bcb4a5" stroke-width="1.5"/>');
+  for(var bi=0;bi<_b;bi++){
+    for(var ai=0;ai<bConns[bi].length;ai++) g.push(line(ax[bConns[bi][ai]], yA+r, bx[bi], yB-r, 1.1, .85));
+  }
+  for(var ci=0;ci<_c;ci++){
+    for(var bj=0;bj<cConns[ci].length;bj++) g.push(line(bx[cConns[ci][bj]], yB+r, cx[ci], yC-r, 1.1, .85));
+    g.push(line(cx[ci], yC+r, outX, yOut-outR, 1.4, .9));
+  }
+  for(var a=0;a<_a;a++) g.push(node(ax[a],yA,colA,'A'+(a+1),8));
+  for(var b=0;b<_b;b++) g.push(node(bx[b],yB,colB,'B'+(b+1),8));
+  for(var c=0;c<_c;c++) g.push(node(cx[c],yC,colC,'C'+(c+1),8));
+  g.push('<g><circle cx="'+outX+'" cy="'+yOut+'" r="'+outR+'" fill="'+colOut+'" stroke="'+stroke+'" stroke-width="1.5"/>'
+    +'<text x="'+outX+'" y="'+(yOut+5)+'" text-anchor="middle" font-family="DM Mono,monospace" font-size="11" font-weight="700" fill="#111">OUT</text></g>');
+  svg.innerHTML = g.join('');
+}
+
 function startSim(){
   G.aC=_a; G.bC=_b; G.cC=_c; G.startW=_w;
   G.correct=0; G.wrong=0; G.history=[];
@@ -670,6 +730,7 @@ function startSim(){
 }
 
 updateSetupWarning();
+renderSetupGraph();
 
 // ══════════════════════════════════
 // ROUND
@@ -1339,12 +1400,21 @@ function resetSim(){
       var dx=ev.clientX-startX;
       var a=w0[0],b=w0[1],c=w0[2],out=w0[3];
       if(which===0){
+        var limL0 = -(w0[0]-minA);
+        var limR0 =  (w0[1]-minB);
+        dx=Math.max(limL0,Math.min(limR0,dx));
         a=Math.max(minA,w0[0]+dx);
         b=Math.max(minB,w0[1]-dx);
       }else if(which===1){
+        var limL1 = -(w0[1]-minB);
+        var limR1 =  (w0[2]-minC);
+        dx=Math.max(limL1,Math.min(limR1,dx));
         b=Math.max(minB,w0[1]+dx);
         c=Math.max(minC,w0[2]-dx);
       }else{
+        var limL2 = -(w0[2]-minC);
+        var limR2 =  (w0[3]-minOut);
+        dx=Math.max(limL2,Math.min(limR2,dx));
         c=Math.max(minC,w0[2]+dx);
         out=Math.max(minOut,w0[3]-dx);
       }

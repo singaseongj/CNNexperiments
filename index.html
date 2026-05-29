@@ -566,6 +566,152 @@ const G = {
 const AW = [5,4,3,4,3,5,4,3,4,3,5,4,3,4,3,5,4,3,4,3];
 const DICE = ['⚀','⚁','⚂','⚃','⚄','⚅'];
 
+const STORE_KEY = 'neuralClassroomState:v1';
+let _hydrating = false;
+
+function cloneState(obj){
+  return JSON.parse(JSON.stringify(obj));
+}
+
+function currentView(){
+  var app=document.getElementById('app');
+  return app && !app.classList.contains('hidden') ? 'app' : 'setup';
+}
+
+function collectButtonState(){
+  var ids=['run-btn','btn-autorollb','btn-autorollc','btn-autotrust','btn-eval','btn-autoeval'];
+  var out={};
+  ids.forEach(function(id){
+    var el=document.getElementById(id);
+    if(el) out[id]={disabled:el.disabled, display:el.style.display||''};
+  });
+  return out;
+}
+
+function applyButtonState(buttons){
+  if(!buttons) return;
+  Object.keys(buttons).forEach(function(id){
+    var el=document.getElementById(id);
+    var st=buttons[id];
+    if(el && st){
+      el.disabled=!!st.disabled;
+      if(st.display!==undefined) el.style.display=st.display;
+    }
+  });
+}
+
+function saveState(){
+  if(_hydrating) return;
+  try{
+    localStorage.setItem(STORE_KEY, JSON.stringify({
+      version:1,
+      view:currentView(),
+      setup:{a:_a,b:_b,c:_c,w:_w},
+      light:_light,
+      g:cloneState(G),
+      ui:{
+        buttons:collectButtonState(),
+        info:(document.getElementById('ab-info')||{}).textContent||'',
+        phaseClass:(document.getElementById('phase-pill')||{}).className||'',
+        phaseText:(document.getElementById('phase-txt')||{}).textContent||'',
+        sumText:(document.getElementById('sum-big')||{}).textContent||'',
+        sumClass:(document.getElementById('sum-big')||{}).className||'',
+        orbText:(document.getElementById('orb')||{}).textContent||'',
+        orbClass:(document.getElementById('orb')||{}).className||'',
+        verdictText:(document.getElementById('vbox')||{}).textContent||'',
+        verdictClass:(document.getElementById('vbox')||{}).className||''
+      }
+    }));
+  }catch(e){
+    // Persistence is a convenience feature; ignore storage quota/privacy failures.
+  }
+}
+
+function syncSetupDisplay(){
+  set('sa-v',_a); set('sa-n',_a);
+  set('sb-v',_b); set('sb-n',_b);
+  set('sc-v',_c); set('sc-n',_c);
+  set('sw-v',_w); set('sw-n',_w);
+  set('stot-v',_b+_c);
+  updateSetupWarning();
+  renderSetupGraph();
+}
+
+function restoreLightUi(){
+  var c=_light;
+  var tr=document.getElementById('tl-r');
+  var tg=document.getElementById('tl-g');
+  var lbl=document.getElementById('tl-lbl');
+  if(tr) tr.className='tl-bulb tl-r'+(c==='RED'?' on':'');
+  if(tg) tg.className='tl-bulb tl-g'+(c==='GREEN'?' on':'');
+  if(lbl){
+    lbl.textContent=c||'Select →';
+    lbl.className='tl-lbl'+(c?' '+c.toLowerCase():'');
+  }
+  var bulb=document.getElementById('tgt-bulb');
+  var name=document.getElementById('tgt-name');
+  if(bulb) bulb.className='tgt-bulb '+(G.target?G.target.toLowerCase():'');
+  if(name) name.textContent=G.target||'—';
+  var run=document.getElementById('run-btn');
+  if(run) run.disabled=!c;
+}
+
+function restoreEvalUi(ui){
+  if(!ui) return;
+  var sum=document.getElementById('sum-big');
+  var orb=document.getElementById('orb');
+  var vb=document.getElementById('vbox');
+  if(sum && ui.sumText){sum.textContent=ui.sumText; sum.className=ui.sumClass||'sum-big';}
+  if(orb && ui.orbText){orb.textContent=ui.orbText; orb.className=ui.orbClass||'orb';}
+  if(vb && ui.verdictText){vb.textContent=ui.verdictText; vb.className=ui.verdictClass||'vbox';}
+  if(ui.phaseClass){
+    var pill=document.getElementById('phase-pill');
+    var txt=document.getElementById('phase-txt');
+    if(pill) pill.className=ui.phaseClass;
+    if(txt) txt.textContent=ui.phaseText||'';
+  }
+  if(ui.info) setInfo(ui.info);
+}
+
+function restoreState(){
+  var raw=null;
+  try{ raw=localStorage.getItem(STORE_KEY); }catch(e){ return false; }
+  if(!raw) return false;
+
+  var saved;
+  try{ saved=JSON.parse(raw); }catch(e){ return false; }
+  if(!saved || saved.version!==1 || !saved.setup || !saved.g) return false;
+
+  _hydrating=true;
+  try{
+    _a=saved.setup.a||12; _b=saved.setup.b||10; _c=saved.setup.c||6; _w=saved.setup.w||20;
+    syncSetupDisplay();
+
+    Object.keys(G).forEach(function(k){
+      if(saved.g[k]!==undefined) G[k]=saved.g[k];
+    });
+    _light=saved.light||null;
+
+    if(saved.view==='app' && G.round>0 && G.aNodes.length && G.bNodes.length && G.cNodes.length){
+      document.getElementById('setup').classList.add('hidden');
+      document.getElementById('app').classList.remove('hidden');
+      set('rnd-num', G.round);
+      set('sc',G.correct); set('sw2',G.wrong);
+      var t=G.correct+G.wrong;
+      set('sacc',t?Math.round(G.correct/t*100)+'%':'—');
+      restoreLightUi();
+      renderA(); renderB(); renderC(); renderScores(); renderWeightPanel(); renderHist(); updateProg();
+      canEval(); checkAutoTrust(); restoreEvalUi(saved.ui); applyButtonState(saved.ui&&saved.ui.buttons);
+    }else{
+      document.getElementById('app').classList.add('hidden');
+      document.getElementById('setup').classList.remove('hidden');
+    }
+  }finally{
+    _hydrating=false;
+  }
+  return true;
+}
+
 // Trust weights: each node has [t0, t1] for its two inputs.
 // Total must always = 6 (like a dice). Round 1 starts at [3,3].
 // After rounds, student adjusts e.g. [2,4] or [1,5].
@@ -728,9 +874,6 @@ function startSim(){
   // btn-autoeval always visible
   ['btn-autorollb','btn-autorollc','btn-autotrust'].forEach(function(id){var b=document.getElementById(id);if(b)b.disabled=false;});
 }
-
-updateSetupWarning();
-renderSetupGraph();
 
 // ══════════════════════════════════
 // ROUND
@@ -1438,6 +1581,16 @@ function resetSim(){
   if(rb) rb.addEventListener('pointerdown',drag.bind(null,1));
   if(rc) rc.addEventListener('pointerdown',drag.bind(null,2));
 })();
+
+
+if(!restoreState()){
+  syncSetupDisplay();
+}
+
+window.addEventListener('beforeunload', saveState);
+document.addEventListener('click', function(){
+  setTimeout(saveState, 0);
+});
 
 </script>
 </body>
